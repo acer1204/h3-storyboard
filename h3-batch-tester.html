@@ -1877,8 +1877,24 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modal").classL
 $("#hstop").onclick = () => { hregenAbort = true; $("#hprog").textContent = "停止中…"; };
 $("#hrefresh").onclick=loadHist;
 $("#hfilter").oninput=renderHist;
-$("#hclear").onclick=async()=>{ if(!confirm("清除全部紀錄？此動作無法復原。"))return;
-  await fetch(API+"/clear",{method:"POST"}); loadHist(); };
+$("#hclear").onclick=async()=>{
+  const n = hist.length;
+  if (!n) return;
+  // two-step: typed confirmation, because this is the one action that removes everything at once
+  const typed = prompt(`即將清除全部 ${n} 筆紀錄。
+
+檔案會搬到 history_trash/<時間>/ 而不是直接刪除，可以手動搬回來復原。
+
+要繼續，請輸入：CLEAR`);
+  if (typed !== "CLEAR") return;
+  const r = await (await fetch(API+"/clear",{method:"POST",headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({confirm:"CLEAR ALL HISTORY"})})).json();
+  if (r.error){ alert("清除失敗：" + r.error); return; }
+  alert(`已將 ${r.moved} 個檔案搬到：
+${r.trash}
+
+如需復原，把裡面的檔案搬回 history/ 後重新啟動伺服器。`);
+  loadHist(); };
 loadHist();
 renderPrompts();   // 先同步畫出內建，再去伺服器補其他組
 loadPrompts().then(() => { setMode(curMode()); loadLoras(); });

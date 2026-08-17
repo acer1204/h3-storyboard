@@ -7,6 +7,7 @@ uploads/
 loras/
 prompts/
 output/
+history_trash/
 
 # ---- local scratch / backups / test assets ----
 _backup_before_lora/

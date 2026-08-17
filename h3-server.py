@@ -737,13 +737,32 @@ class H(SimpleHTTPRequestHandler):
         p = urlparse(self.path).path
 
         if p == "/api/history/clear":
+            # SAFETY: "clear all" is the single most destructive action in the app. It never deletes -
+            # it moves everything into history_trash/<timestamp>/ so a mistake is recoverable, and it
+            # requires an explicit confirm token so a stray request cannot wipe the library.
+            try:
+                body = self.read_json()
+            except Exception:
+                body = {}
+            if not isinstance(body, dict) or body.get("confirm") != "CLEAR ALL HISTORY":
+                return self.send_json({"error": "refused: send {\"confirm\": \"CLEAR ALL HISTORY\"}"}, 400)
+            import shutil
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            trash = os.path.join(ROOT, "history_trash", stamp)
+            moved = 0
             with LOCK:
+                os.makedirs(trash, exist_ok=True)
                 for f in os.listdir(HIST):
-                    if f != "index.json":
-                        try: os.remove(os.path.join(HIST, f))
-                        except OSError: pass
+                    src = os.path.join(HIST, f)
+                    if not os.path.isfile(src):
+                        continue
+                    try:
+                        shutil.move(src, os.path.join(trash, f)); moved += 1
+                    except OSError:
+                        pass
                 save_index([])
-            return self.send_json({"ok": True})
+            return self.send_json({"ok": True, "moved": moved, "trash": trash,
+                                   "restore_hint": "move the files in %s back into history/ and restart" % trash})
 
         if p == "/api/comfy/refresh":
             try:
