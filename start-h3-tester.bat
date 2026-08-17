@@ -6,7 +6,7 @@ title H3 Storyboard
 rem ============================================================
 rem   H3 Storyboard - launcher
 rem   Settings live in config.json (copy config.example.json).
-rem   CLI flags on h3-server.py override config.json.
+rem   The server runs IN THIS WINDOW. Close it / Ctrl+C to stop.
 rem ============================================================
 
 if not exist "h3-server.py" (
@@ -16,11 +16,6 @@ if not exist "h3-server.py" (
 if not exist "h3-batch-tester.html" (
     echo [ERROR] h3-batch-tester.html not found
     goto :halt
-)
-if not exist "config.json" (
-    echo [INFO] config.json not found - creating from config.example.json
-    copy /y "config.example.json" "config.json" >nul
-    echo        edit config.json to point at your llama-server / ComfyUI, then re-run.
 )
 
 rem ---------- python ----------
@@ -32,7 +27,21 @@ if not defined PY (
     goto :halt
 )
 
-rem ---------- read port + llama url from config.json ----------
+rem ---------- config.json ----------
+if not exist "config.json" (
+    copy /y "config.example.json" "config.json" >nul
+    echo ============================================================
+    echo   [FIRST RUN] config.json was created from config.example.json
+    echo   It currently points at http://127.0.0.1:8080 which is
+    echo   probably NOT your llama-server.
+    echo.
+    echo   Edit config.json now, then run this again.
+    echo ============================================================
+    notepad "config.json"
+    goto :halt
+)
+
+rem ---------- read port + llama url ----------
 set "PORT=9998"
 set "LLAMA="
 for /f "usebackq delims=" %%L in (`%PY% -c "import json;c=json.load(open('config.json',encoding='utf-8'));print(c.get('port',9998))"`) do set "PORT=%%L"
@@ -49,22 +58,25 @@ echo.
 rem ---------- already running? just open the page ----------
 set "INUSE="
 for /f "tokens=*" %%L in ('netstat -ano ^| findstr /R /C:":%PORT% .*LISTENING"') do set "INUSE=1"
-
 set "URL=http://127.0.0.1:%PORT%/"
 if defined INUSE (
-    echo   server already running - opening %URL%
+    echo   port %PORT% is already in use - a server is running.
+    echo   If you just updated the code, CLOSE that old server window
+    echo   first, then run this again. Opening the page now.
+    echo.
     start "" "%URL%"
-    goto :end
+    goto :halt
 )
 
-start "" /min %PY% h3-server.py
-timeout /t 2 /nobreak >nul
-start "" "%URL%"
-echo   opened %URL%
-echo   (server window is minimized; close it to stop)
-goto :end
+rem ---------- open the page shortly after the server is up, then run the server HERE ----------
+start "" /b cmd /c "timeout /t 2 /nobreak >nul & start "" "%URL%""
+echo   starting server in this window - keep it open. Ctrl+C to stop.
+echo ------------------------------------------------------------
+%PY% h3-server.py
+echo.
+echo   server stopped.
+goto :halt
 
 :halt
 pause
-:end
 endlocal
