@@ -94,6 +94,17 @@ MEDIA_EXT = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktim
              ".mp3": "audio/mpeg", ".wav": "audio/wav", ".flac": "audio/flac",
              ".m4a": "audio/mp4"}
 LOCK = threading.Lock()
+COMFY_LAST_STATE = {}   # prompt_id -> last state string, so the console logs transitions, not every poll
+
+
+def comfy_note(pid, state, extra=""):
+    """Print one line when a ComfyUI job changes state (queued -> running -> done/error)."""
+    key = state + ("|" + extra if extra else "")
+    if COMFY_LAST_STATE.get(pid) != key:
+        COMFY_LAST_STATE[pid] = key
+        sys.stderr.write("  comfy %s : %s%s\n" % (pid[:8], state, (" " + extra) if extra else ""))
+        if state in ("done", "error"):
+            COMFY_LAST_STATE.pop(pid, None)
 MAX_BODY = 24 * 1024 * 1024
 ID_RE = re.compile(r"^[0-9a-f]{8,32}$")
 
@@ -503,8 +514,14 @@ class H(SimpleHTTPRequestHandler):
         return SimpleHTTPRequestHandler.do_HEAD(self)
 
     def log_message(self, fmt, *args):
-        if "/api/" in (self.path or ""):
-            sys.stderr.write("  %s %s\n" % (self.command, self.path))
+        pth = self.path or ""
+        if "/api/" not in pth:
+            return
+        # The ComfyUI status poll fires every 4 s per job for the whole render (minutes). Echoing each one
+        # buries everything useful. The status handler logs state TRANSITIONS itself instead.
+        if pth.startswith("/api/comfy/status/"):
+            return
+        sys.stderr.write("  %s %s\n" % (self.command, pth))
 
     def guess_type(self, path):
         """標準函式庫送 text/html 時不帶 charset，瀏覽器會按系統預設去猜而變亂碼。"""
@@ -640,6 +657,7 @@ class H(SimpleHTTPRequestHandler):
                     if msg[0] == "execution_error":
                         err = str(msg[1].get("exception_message", ""))[:400]
                 state = "done" if st.get("completed") else ("error" if st.get("status_str") == "error" else "running")
+                comfy_note(pid, state, (outs[-1] if (state == "done" and outs) else (err[:80] if err else "")))
                 return self.send_json({"state": state, "outputs": outs, "error": err})
             try:
                 q = comfy_api("/queue", timeout=15)
@@ -647,10 +665,13 @@ class H(SimpleHTTPRequestHandler):
                 return self.send_json({"error": "ComfyUI 連不上: %s" % e}, 502)
             for item in q.get("queue_running", []):
                 if len(item) > 1 and item[1] == pid:
+                    comfy_note(pid, "running")
                     return self.send_json({"state": "running"})
             for i, item in enumerate(q.get("queue_pending", [])):
                 if len(item) > 1 and item[1] == pid:
+                    comfy_note(pid, "queued", "(pos %d)" % (i + 1))
                     return self.send_json({"state": "queued", "pos": i + 1})
+            comfy_note(pid, "unknown")
             return self.send_json({"state": "unknown"})
 
         if p == "/api/media":

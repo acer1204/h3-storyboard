@@ -1923,11 +1923,17 @@ async function comfySend(payload, statusEl, btn){
   }
 }
 async function comfyPoll(pid, set, btn){
-  for (let i = 0; i < 450; i++){                       // 最長約 30 分鐘
-    await new Promise(r => setTimeout(r, 4000));
+  /* 4 s while queued/starting, then back off to 10 s once running (H3 renders take minutes);
+     pause entirely while the tab is hidden - nothing to show anyway. Hard cap ~30 min. */
+  const t0 = Date.now();
+  let delay = 4000;
+  while (Date.now() - t0 < 30 * 60 * 1000){
+    await new Promise(r => setTimeout(r, delay));
+    if (document.hidden){ await new Promise(r => document.addEventListener("visibilitychange", r, {once:true})); }
     let j;
     try{ j = await (await fetch(CAPI + "/status/" + pid)).json(); }
     catch(e){ continue; }
+    if (j.state === "running") delay = 10000;
     if (j.state === "queued") set(`排隊中（第 ${j.pos} 位）`);
     else if (j.state === "running") set("生成中…");
     else if (j.state === "done"){
