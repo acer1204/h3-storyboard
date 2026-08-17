@@ -1134,7 +1134,27 @@ function validate(c, target, wantShots){
     const re=/[Tt]he camera ([a-z][^.]{2,120}?) with (small|large|medium) amplitude at (slow|fast|moderate) speed/g;
     const cams=[...body.matchAll(re)];
     moves=cams.map(m=>m[1].trim()); pairs=cams.map(m=>m[2]+"/"+m[3]);
+    /* EVERY sentence that starts with "The camera" must be a complete direction (both slots).
+       Bare ones like "The camera tracks alongside her as she moves." used to slip through because
+       the count-based check only looked at the complete ones. */
+    const allCam=[...body.matchAll(/(?:^|[.;!?]\s+)(The camera [^.]*?\.)/g)].map(m=>m[1]);
+    const bare=allCam.filter(x=>!/with (?:small|large|medium) amplitude[^.]*?at (?:slow|fast|moderate) speed/.test(x));
+    bare.forEach(x=>E.push(`運鏡句缺 amplitude/speed：「${x.slice(0,60)}${x.length>60?"…":""}」`));
+    /* I2V-safety policy: large only with push/zoom; never behind her; never "reveal" new scenery */
+    cams.forEach(m=>{
+      const mv=m[1].toLowerCase(), amp=m[2];
+      const isPush=/push|zoom|move[sd]? (in|closer)|close[sd]? in/.test(mv);
+      if (amp==="large" && !isPush) E.push(`large amplitude 只准用在 push/zoom：「${m[1].trim().slice(0,40)}」`);
+    });
+    if (/(?:arc|orbit|circle|swing)s?[^.]{0,60}(?:behind her|to her back|around to the back|full circle|all the way around|360)/i.test(body)
+        || /reveal(?:s|ing)? (?:her|the) (?:back|spine|buttocks|rear)/i.test(body)
+        || /turns? (?:her|his) back (?:to|toward|on) the (?:camera|lens|viewer)[^.]*?(?:reveal|expos|show)/i.test(body))
+      E.push("畫面轉到人物背面 / 揭露背面（首幀沒有的內容，I2V 最容易崩）");
+    if (/[Tt]he camera [^.]*?(?:reveal|uncover|expos)[^.]*?(?:scene|scenery|room|space|background|landscape|doorway|window|sky|corridor|hallway)/.test(body))
+      W.push("鏡頭移動去「揭露」首幀外的場景——建議改成留在首幀範圍內");
     const fam = t => { t=t.toLowerCase();
+      if (/\bhold|\bstay|\bremain|near(?:ly)?[- ]static|\bsettle|\bsteady|\bstill\b/.test(t)) return "hold";   // near-static opener (safest)
+      if (/\bdrift|\bglide|\bease|\bnudge/.test(t)) return "drift";                                             // tiny lateral / float
       for (const k of ["track","truck","arc","pan","pedestal","tilt","roll","shake","pov","crane","dolly"]) if (t.includes(k)) return k;
       if (/push|zoom|move[sd]? (in|closer)|close[sd]? in/.test(t)) return "push/zoom";
       if (/pull|move[sd]? (out|back|away)/.test(t)) return "pull";
@@ -1148,7 +1168,7 @@ function validate(c, target, wantShots){
     if (cams.length < 2) E.push(`一鏡到底只有 ${cams.length} 句運鏡（每階段一句，至少 2）`);
     else if (cams.length < wantCams) I.push(`${cams.length} 句運鏡但約 ${wantCams} 個階段（建議每階段一句）`);
     if (cams.length > 4) W.push(`${cams.length} 句運鏡（建議 ≤3）`);
-    const dup = fams.filter((f,i)=>f && fams.indexOf(f)!==i);
+    const dup = fams.filter((f,i)=>f && f!=="hold" && f!=="drift" && fams.indexOf(f)!==i);
     if (dup.length) E.push("運鏡動詞家族重複："+[...new Set(dup)].join(", "));
     const pz = fams.map((f,i)=>f==="push/zoom"?i:-1).filter(i=>i>=0);
     if (pz.length>1) E.push("push/zoom 出現超過一次");
@@ -1156,6 +1176,8 @@ function validate(c, target, wantShots){
     if (/(?<![A-Za-z])cut(?:s|ting)? to(?![A-Za-z])|hard cut|(?<![A-Za-z])jumps? to(?![A-Za-z])/i.test(body)) E.push("一鏡到底不可出現 cut to / hard cut");
     if (!/No additional people/i.test(c)) E.push("缺少 No additional people 子句");
     if (!/Preserve/.test(c)) W.push("缺少 Preserve 子句");
+    else if (/Preserve[^.]*(?:each named specifically|the key scenery|her hair, outfit and)/i.test(c))
+      E.push("Preserve 子句抄了模板原文（each named specifically / the key scenery）——要具體列出這張圖的物件");
   }
 
   if (c.includes("<d>")){

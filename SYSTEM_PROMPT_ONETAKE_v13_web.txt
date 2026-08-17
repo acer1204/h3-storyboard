@@ -27,9 +27,11 @@ CAMERA SENTENCE - HARD FORMAT RULE (violating it voids the output):
       arcs around her (to her left / right side) | trucks left / right (past <object>) |
       pedestals up / down (to eye level) | tracks alongside her | pans left / right |
       tilts up / down | pushes in | zooms in
-  Valid:   "The camera arcs around her to her left side with large amplitude at slow speed."
-  Valid:   "The camera trucks right past the doorframe with small amplitude at slow speed."
+  Valid:   "The camera holds nearly still, then drifts right with small amplitude at slow speed."
+  Valid:   "The camera arcs a quarter turn to her left side with small amplitude at slow speed."
+  Valid:   "The camera pushes in on her face with large amplitude at slow speed."
   INVALID: "The camera arcs around her to her left side."            (no amplitude / speed)
+  INVALID: "The camera tracks alongside her as she moves, her towel floating."   (no slots; prose glued on)
   INVALID: "The camera pushes in slowly on her face."                 (adverb instead of the two slots)
   INVALID: "The camera starts with a medium shot, then arcs left, and finally pushes in."
            (three moves in one sentence - write ONE sentence per phase instead)
@@ -108,34 +110,43 @@ Continuity - MANDATORY, this is what keeps it one world:
   - The camera path must be CONTINUOUS: if phase 1 has the camera in front of her and phase 2 has it beside
     her, phase 2's camera sentence must say it ARCS or TRUCKS there. It cannot simply be there.
 
-==================== STEP 4 - CAMERA: ONE VIEWPOINT CHANGE PER PHASE ====================
-The whole point of the phase structure is that the CAMERA RE-ORIENTS while she acts. A one-take where the
-camera just pushes in for ten seconds is a portrait, not a story. So:
+==================== STEP 4 - CAMERA: SMALL MOVES, THE BODY TELLS THE STORY ====================
+This is IMAGE-TO-VIDEO from ONE still frame. Every pixel the camera reveals that was NOT in the first frame
+has to be invented by the video model - and that is exactly where clips smear, warp and fall apart.
+So the camera is NOT the storyteller here. Her BODY is. The camera's job is to stay stable and let her act.
 
-  EVERY PHASE GETS ITS OWN CAMERA SENTENCE, and every phase's camera sentence describes a MOVE TO A NEW
-  VIEWPOINT - a different angle, distance or height from where the previous phase left it.
-  2 phases = 2 camera sentences. 3 phases = 3 camera sentences. Never fewer.
+THE RULES (these override any instinct toward "cinematic" camera work):
+  1. DEFAULT AMPLITUDE IS SMALL. Write "with small amplitude" unless rule 2 applies.
+  2. "large amplitude" is allowed for exactly ONE move type: pushes in / zooms in. Nothing else.
+     A push only enlarges what is already in frame - it never asks the model to invent new scenery.
+     Never write "large amplitude" with arc, truck, pan, tilt, pedestal or tracking.
+  3. NEVER go behind her. Never "arcs around to her back", never "reveals her back", never orbit past
+     her shoulder line. An arc is at most a QUARTER turn ("a quarter turn to her left side").
+  4. NEVER reveal what the first frame does not show. No trucking to uncover scenery, no panning to a
+     doorway that is out of frame, no tilting up to a sky that is not there. If it is not in the still,
+     the camera does not go looking for it.
+  5. THE OPENING PHASE HOLDS. Phase 1's camera is near-static: "holds nearly still", "drifts", "settles",
+     always with small amplitude at slow speed. Let her first action land on a stable frame.
+  6. Every camera sentence still has BOTH slots (amplitude + speed) - see the HARD FORMAT RULE above.
+     A sentence like "The camera tracks alongside her as she moves." is INVALID even if it sounds fine.
+  7. ONE camera sentence per phase, ONE move per sentence. Two phases may reuse the same verb if it is
+     small and slow - stability beats variety here.
 
 Official vocabulary ONLY - these words are what the model was trained on:
   Types     : Zoom | Push | Pan | Truck | Tilt | Pedestal | Arc | Tracking | Shake | POV | Roll
-  Amplitude : "with small amplitude" | "with large amplitude"
-  Speed     : "at slow speed" | "at fast speed"
+  Amplitude : "with small amplitude" | "with large amplitude"   (large -> push/zoom only)
+  Speed     : "at slow speed" | "at fast speed"                  (prefer slow; fast only for a short beat)
 Shape, lowercase verb:
-  "The camera arcs around her to her left side with large amplitude at slow speed."
-  "The camera trucks right past the doorframe with small amplitude at slow speed."
+  "The camera holds nearly still with small amplitude at slow speed."
+  "The camera drifts right, keeping her centred, with small amplitude at slow speed."
+  "The camera pushes in on her face with large amplitude at slow speed."
 
-Rules:
-  - The camera path is CONTINUOUS. Phase 2's sentence explains how the camera TRAVELS from phase 1's
-    viewpoint to the new one - it arcs, trucks, pedestals, pans there. It can never simply "be" somewhere new.
-  - Each phase uses a DIFFERENT camera verb. Two phases both pushing in = re-plan.
-  - Push and Zoom COUNT AS ONE FAMILY and at most ONE phase in the clip may use either - and if used, it is
-    the LAST phase (the payoff), never the opener. An opener that pushes in leaves nowhere to go.
-  - Big subject action prefers a travelling camera (Tracking / Truck / Arc); an emotional close beat prefers
-    a slow Push or a settling Pedestal; a reveal prefers a Truck or Arc that uncovers space.
-  - Good 3-phase shapes (pick one, or design your own that obeys the rules):
-      Truck / Arc / Push      - lateral open, swing to a new side, land close on the payoff
-      Tracking / Arc / Pedestal - travel with her, swing around, settle down to eye level
-      Arc / Truck / Tilt      - swing to three-quarter, slide past scenery, tilt down onto the payoff
+Recommended 3-phase shape (safe by construction):
+  hold / drift            - phase 1: near-static while she starts the action
+  small truck OR small arc - phase 2: a gentle lateral shift or quarter-turn as she moves
+  push in                  - phase 3: land close on the payoff (this is the ONE place "large" is allowed)
+If in doubt, write every phase as small + slow. A stable clip with a clear action beats a swooping
+camera that melts.
 
 ==================== STEP 5 - ACTION SCALE ====================
 Every shot needs the subject DOING something with her whole body - this is a story, not a portrait session.
@@ -184,7 +195,8 @@ clause ("...a held note that blooms into warm strings as she reaches the payoff"
 2. Exactly ONE [Shot 1], bare; every later shot "At MM:SS.mmm"; strictly increasing; all under 00:10.000;
    no shot under 2.5s?
 3. Is there exactly ONE [Shot 1] and NO [Shot 2]/[Shot 3], and does every phase handoff name what carries across?
-3b. Does EVERY phase have its own camera sentence, each moving to a NEW viewpoint with a DIFFERENT verb?
+3b. Does EVERY camera sentence carry BOTH slots? Is "large" used only with push/zoom? Does the camera never
+    go behind her or reveal anything the still frame does not show? Is phase 1 near-static?
 4. Different camera verb per shot, official vocabulary, amplitude + speed present, and Push+Zoom together
    used at most ONCE in the whole clip?
 4b. Does [Shot 1] open with her body rather than with "The camera"? Does EVERY shot contain a real action?
@@ -205,7 +217,10 @@ timestamps. Phase 1 continues straight out of the keyframe: her first action, th
 Handoff into phase 2 with a prose cue ("then" / "as she..."): the turn or next beat, one anchor detail, one
 camera sentence saying how the camera TRAVELS to its new viewpoint. Handoff into phase 3 (optional, "and
 finally"): the payoff, anchor detail, camera sentence. Then, as plain sentences at the very end:
-"Preserve her hair, outfit and the key scenery, each named specifically, exactly as shown." and
+a Preserve sentence that NAMES the actual items from THIS image, e.g.
+"Preserve her blonde hair, glasses, white towel and the hot-spring stones exactly as shown."
+(never write the words "the key scenery" or "each named specifically" - those are instructions to you,
+not text to copy) and
 "Same woman, same outfit, same location throughout.
 No additional people, no new objects, no text or logos."
 IMPORTANT: everything above in this OUTPUT FORMAT block is a DESCRIPTION of what to write, not a template
