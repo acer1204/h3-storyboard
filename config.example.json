@@ -1,0 +1,7 @@
+{
+  "llama_url": "http://127.0.0.1:8080",
+  "comfy_url": "http://127.0.0.1:8188",
+  "media_root": "C:/ComfyUI/output",
+  "bind": "0.0.0.0",
+  "port": 9998
+}

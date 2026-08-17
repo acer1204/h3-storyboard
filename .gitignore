@@ -1,0 +1,24 @@
+# ---- personal deployment settings ----
+config.json
+
+# ---- runtime data (your images, generations, presets) ----
+history/
+uploads/
+loras/
+prompts/
+output/
+
+# ---- local scratch / backups / test assets ----
+_backup_before_lora/
+*.bak
+*.zip
+h3-test-report.html
+新增資料夾/
+docs/_work/
+
+# ---- OS / editor ----
+Thumbs.db
+.DS_Store
+*.swp
+__pycache__/
+*.pyc

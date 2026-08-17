@@ -1,0 +1,2222 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H3 Prompt 批次產生器</title>
+<style>
+:root{
+  --bg:#fbfaf8; --panel:#fff; --fg:#1c1a17; --mut:#6f6862; --faint:#9b948c;
+  --line:#e5e0d8; --line2:#efebe4; --acc:#b5502a; --ok:#2f6f5e; --warn:#8a6d1f;
+  --code:#f5f2ec; --btn:#1c1a17; --btnfg:#fbfaf8; --side:#f4f1ea; --hover:#ece7de;
+  --shadow:0 1px 2px rgba(28,26,23,.04),0 4px 12px rgba(28,26,23,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#16150f; --panel:#1e1c16; --fg:#eae5dc; --mut:#9b948a; --faint:#6f6a60;
+  --line:#312e27; --line2:#272419; --acc:#e08a5f; --ok:#6fbfa4; --warn:#d4b25a;
+  --code:#23211a; --btn:#eae5dc; --btnfg:#16150f; --side:#1a1813; --hover:#2a271f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+}}
+:root[data-theme=dark]{
+  --bg:#16150f; --panel:#1e1c16; --fg:#eae5dc; --mut:#9b948a; --faint:#6f6a60;
+  --line:#312e27; --line2:#272419; --acc:#e08a5f; --ok:#6fbfa4; --warn:#d4b25a;
+  --code:#23211a; --btn:#eae5dc; --btnfg:#16150f; --side:#1a1813; --hover:#2a271f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);
+  font:15px/1.7 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  -webkit-text-size-adjust:100%}
+
+/* ---------- shell ---------- */
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+.app.collapsed{grid-template-columns:60px 1fr}
+.side{background:var(--side);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;padding:14px 10px 22px;overflow:hidden}
+.sidetop{display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:34px}
+.hbg{width:36px;height:34px;flex:none;border:1px solid var(--line);background:var(--panel);border-radius:9px;
+  cursor:pointer;display:grid;place-items:center;color:var(--mut);padding:0}
+.hbg:hover{color:var(--fg);border-color:var(--acc)}
+.hbg svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.app.collapsed .brand,.app.collapsed .nav span:not(.cnt),.app.collapsed .sidefoot{display:none}
+.app.collapsed .nav{justify-content:center;padding:10px 0;position:relative}
+.app.collapsed .nav .cnt{position:absolute;top:2px;right:4px;margin:0;font-size:9.5px}
+.app.collapsed .nav[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 10px);top:50%;
+  transform:translateY(-50%);background:var(--panel);border:1px solid var(--line);color:var(--fg);font-size:12px;
+  padding:5px 9px;border-radius:7px;white-space:nowrap;box-shadow:var(--shadow);z-index:50;pointer-events:none}
+.app.collapsed .sidetop{justify-content:center}
+.brand{padding:0 10px 20px;font-weight:700;font-size:16px;letter-spacing:-.01em;line-height:1.35}
+.brand small{display:block;font-weight:400;font-size:12px;color:var(--faint);letter-spacing:.02em;margin-top:2px}
+.nav{display:flex;align-items:center;gap:11px;width:100%;padding:10px 11px;margin-bottom:3px;
+  background:none;border:0;border-radius:9px;color:var(--mut);font:inherit;font-size:14.5px;
+  font-weight:500;cursor:pointer;text-align:left;transition:background .12s,color .12s}
+.nav:hover{background:var(--hover);color:var(--fg)}
+.nav.on{background:var(--panel);color:var(--fg);font-weight:600;box-shadow:var(--shadow)}
+.nav svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.nav .cnt{margin-left:auto;font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.nav.busy .cnt{color:var(--acc)}
+.sidefoot{margin-top:auto;padding:14px 11px 0;border-top:1px solid var(--line);font-size:12px;color:var(--faint)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:7px;
+  vertical-align:1px}
+.dot.up{background:var(--ok)}.dot.down{background:var(--acc)}
+
+.main{min-width:0;padding:40px 40px 80px}
+.view{display:none;max-width:1080px}
+.view.on{display:block;animation:fade .18s ease}
+@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.vh{margin:0 0 4px;font-size:23px;letter-spacing:-.02em}
+.vs{margin:0 0 26px;color:var(--mut);font-size:14px}
+
+/* ---------- bits ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:20px;margin-bottom:16px}
+.panel h3{margin:0 0 3px;font-size:15px}
+.panel .ph{margin:0 0 16px;color:var(--mut);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+  margin-bottom:6px;font-weight:600}
+input,select,textarea{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);
+  border-radius:8px;padding:9px 11px;font:inherit;font-size:14px}
+input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--acc) 45%,transparent);
+  outline-offset:-1px;border-color:transparent}
+textarea{min-height:340px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.65;resize:vertical}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button{background:var(--btn);color:var(--btnfg);border:0;border-radius:8px;padding:9px 17px;
+  font:inherit;font-weight:600;font-size:14px;cursor:pointer;transition:opacity .12s}
+button:hover{opacity:.85}
+button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+button.ghost:hover{background:var(--hover);opacity:1}
+button.mini{padding:6px 12px;font-size:12.5px}
+button:disabled{opacity:.35;cursor:not-allowed}
+.status{font-size:13px;color:var(--mut);margin:10px 0 0;font-variant-numeric:tabular-nums;min-height:1.2em}
+.hint{font-size:12.5px;color:var(--faint);margin:6px 0 0}
+
+#drop{border:2px dashed var(--line);border-radius:13px;padding:46px 20px;text-align:center;
+  color:var(--mut);cursor:pointer;transition:.15s;background:var(--panel);margin-bottom:16px}
+#drop:hover,#drop.hot{border-color:var(--acc);color:var(--fg);background:var(--hover)}
+#drop b{display:block;font-size:15.5px;margin-bottom:5px;color:var(--fg)}
+
+.fbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin:16px 0 2px;
+  padding:11px 13px;background:var(--panel);border:1px solid var(--line);border-radius:11px}
+.flab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600}
+#fchips{display:flex;gap:7px;flex-wrap:wrap}
+.fchip{font-size:12.5px;padding:4px 11px;border-radius:999px;border:1px solid var(--line);
+  background:transparent;color:var(--faint);cursor:pointer;font-weight:500;
+  font-variant-numeric:tabular-nums;transition:.12s}
+.fchip:hover{border-color:var(--acc)}
+.fchip.on{color:var(--fg);border-color:currentColor;font-weight:600}
+.fchip.on.f-ok{color:var(--ok)}.fchip.on.f-warn{color:var(--warn)}
+.fchip.on.f-fail{color:var(--acc)}.fchip.on.f-error{color:var(--acc)}
+.fchip.on.f-cuts{color:var(--fg)}.fchip.on.f-onetake{color:var(--acc)}
+.hcell .mtag{position:absolute;right:20px;top:6px;font-size:10px;padding:1px 6px;border-radius:4px;
+  background:color-mix(in srgb,var(--bg) 78%,transparent);border:1px solid var(--line);color:var(--faint);backdrop-filter:blur(3px)}
+.hcell .mtag.ot{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 50%,var(--line))}
+.ctx{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.ctx span{font-size:11.5px;padding:2px 9px;border-radius:6px;border:1px solid var(--line);color:var(--faint);background:var(--code)}
+.ctx span b{color:var(--fg);font-weight:600;margin-left:4px}
+.ctx span.ot b{color:var(--acc)}
+.fchip .n{opacity:.65;margin-left:5px}
+.fsep{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{background:transparent;color:var(--mut);border:0;border-radius:0;padding:8px 15px;
+  font-size:13.5px;font-weight:500;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--hover);opacity:1;color:var(--fg)}
+.seg button.on{background:var(--btn);color:var(--btnfg);font-weight:600}
+.seg.sm button{padding:5px 10px;font-size:12px}
+.note-wrap{margin-top:10px}
+.note-wrap label{margin-bottom:5px}
+textarea.note{min-height:74px;font-family:inherit;font-size:13px;line-height:1.6;resize:vertical;
+  padding:8px 10px}
+.card.hide{display:none}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px;margin:14px 0;
+  display:grid;grid-template-columns:210px 1fr;gap:22px}
+.card>.thumb img{width:100%;border-radius:9px;display:block}
+.card>.thumb .ph{aspect-ratio:3/4;border-radius:9px;background:var(--code);display:grid;place-items:center;
+  color:var(--faint);font-size:12px;margin:0}
+.hd{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:9px}
+.name{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--mut);word-break:break-all}
+.badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.b-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.b-warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.b-fail{background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc)}
+.b-run{background:color-mix(in srgb,var(--mut) 18%,transparent);color:var(--mut)}
+.meta{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums;
+  display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut);
+  font-family:ui-monospace,Consolas,monospace}
+.chip.dlg{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 45%,var(--line))}
+ul.issues{margin:0 0 14px;padding-left:19px;font-size:13.2px}
+ul.issues li{margin-bottom:3px}
+ul.issues li.e{color:var(--acc)}ul.issues li.w{color:var(--warn)}ul.issues li.i{color:var(--faint)}ul.issues li.i::before{content:"ⓘ "}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.col.zh{border-left:1px solid var(--line2);padding-left:22px}
+.lab{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+  margin:0 0 4px;font-weight:600}
+.col p{margin:0 0 13px;font-size:14px}
+.shot{color:var(--acc);font-weight:700}
+.cam{background:color-mix(in srgb,var(--ok) 12%,transparent);border-radius:4px;padding:1px 3px}
+pre{background:var(--code);border-radius:9px;padding:13px;overflow-x:auto;font-size:12px;
+  white-space:pre-wrap;word-break:break-word;line-height:1.6;margin:0}
+details{margin-top:10px}
+summary{cursor:pointer;color:var(--mut);font-size:12.5px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+td,th{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line2)}
+th{color:var(--faint);font-size:11px;letter-spacing:.05em;text-transform:uppercase;font-weight:600}
+.bar{height:5px;border-radius:3px;background:var(--acc);min-width:2px}
+
+.splayout{display:grid;grid-template-columns:236px 1fr;gap:20px}
+.splist{min-width:0}
+.pitem{display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border:1px solid var(--line);
+  border-radius:9px;margin-bottom:7px;cursor:pointer;background:var(--bg);transition:.12s;width:100%;
+  text-align:left;font:inherit;color:var(--fg)}
+.pitem:hover{border-color:var(--acc)}
+.pitem.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 7%,var(--bg))}
+.pitem .rd{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--faint);flex:none;margin-top:4px}
+.pitem.on .rd{border-color:var(--acc);background:radial-gradient(var(--acc) 45%,transparent 47%)}
+.pitem .nm{display:block;font-size:13.5px;font-weight:600;line-height:1.4;word-break:break-word}
+.pitem .sub{display:block;font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.modeseg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.modeseg button{background:none;border:0;color:var(--faint);padding:7px 14px;font-size:13px;cursor:pointer}
+.modeseg button.on{background:color-mix(in srgb,var(--acc) 14%,var(--bg));color:var(--acc);font-weight:600}
+.modetag{font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:6px;color:var(--faint)}
+.lora-off .lrow{opacity:.55}
+#ledit{min-width:0}
+#ledit>label,#ledit .hint{overflow-wrap:anywhere}
+#lmain,#lname{width:100%;min-width:0;box-sizing:border-box}
+@media(max-width:980px){#lorapanel .splayout{grid-template-columns:1fr}}
+.lsubs{margin:8px 0;overflow-x:auto}
+table.ltab{width:100%;border-collapse:collapse;table-layout:auto}
+table.ltab th{font-size:11px;font-weight:600;letter-spacing:.4px;color:var(--faint);text-transform:uppercase;
+  text-align:left;padding:4px 6px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.ltab td{padding:4px 6px;vertical-align:middle;border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+table.ltab tr:last-child td{border-bottom:0}
+table.ltab td.k{width:130px}
+table.ltab td.a,table.ltab th.a{width:110px}
+table.ltab td.a input{font-family:inherit}
+table.ltab td.f,table.ltab th.f{width:64px;text-align:center}
+table.ltab td.d,table.ltab th.d{width:44px;text-align:center}
+table.ltab input[type=text]{width:100%;min-width:0;box-sizing:border-box;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;margin:0}
+table.ltab input[type=checkbox]{margin:0;transform:scale(1.15)}
+table.ltab .x{border:1px solid var(--line);background:none;color:var(--faint);border-radius:6px;padding:3px 8px;cursor:pointer;line-height:1}
+table.ltab .x:hover{color:#ff8f7a;border-color:currentColor}
+table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
+.lbadge{display:inline-block;font-family:ui-monospace,Consolas,monospace;font-size:10.5px;border-radius:5px;padding:1px 7px;margin:0 3px 3px 0;border:1px solid}
+.lbadge.m{background:#2a1a2e;border-color:#6a3d78;color:#ffb3e6}
+.lbadge.s{background:#1a2230;border-color:#2f4a6a;color:#9dc7ff}
+.lbadge.s b{color:#ffd28a;font-weight:700}
+.lbadge.s i{color:var(--faint);font-style:normal;margin-left:5px;font-size:9.5px}
+.lbadge.f{background:#2c1614;border-color:#5a2a26;color:#ff8f7a}
+.pitem .lock{font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:4px;
+  padding:0 4px;margin-left:5px;vertical-align:1px;font-weight:400}
+@media(max-width:860px){.splayout{grid-template-columns:1fr}}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:11px}
+.hcell{border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;background:var(--panel);
+  transition:.13s;position:relative;text-align:left}
+.hcell:hover{border-color:var(--acc);transform:translateY(-2px);box-shadow:var(--shadow)}
+.hcell img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;background:var(--code)}
+.hcell .cap{padding:5px 8px;font-size:10.5px;color:var(--mut);line-height:1.4;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,Consolas,monospace}
+.hcell .cap.t{color:var(--faint);padding-top:0;padding-bottom:7px}
+.hcell .sdot{position:absolute;top:7px;right:7px;width:9px;height:9px;border-radius:50%;
+  box-shadow:0 0 0 2px var(--panel)}
+.s-ok{background:var(--ok)}.s-warn{background:var(--warn)}.s-fail{background:var(--acc)}
+.vcount{position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;padding:1px 7px;
+  border-radius:999px;background:rgba(20,18,14,.62);color:#fff;backdrop-filter:blur(3px)}
+.vbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:15px;padding-bottom:13px;
+  border-bottom:1px solid var(--line2)}
+.mtop{display:grid;grid-template-columns:250px 1fr;gap:16px;margin-bottom:16px;align-items:start}
+.mtop .mimg{width:100%;border-radius:10px;display:block;border:1px solid var(--line)}
+@media(max-width:760px){.mtop{grid-template-columns:1fr}
+  .mtop .mimg{max-width:260px;margin:0 auto}}
+.vtab{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 11px;
+  border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--mut);
+  cursor:pointer;font-variant-numeric:tabular-nums;font-weight:500}
+.vtab:hover{border-color:var(--acc)}
+.vtab.on{color:var(--fg);border-color:var(--acc);font-weight:600;
+  background:color-mix(in srgb,var(--acc) 8%,transparent)}
+.vst{font-size:11px;font-weight:700}
+.t-ok{color:var(--ok)}.t-warn{color:var(--warn)}.t-fail{color:var(--acc)}
+
+.mdgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:13px}
+/* ---- 上傳媒體庫 ---- */
+.upgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.upcell{position:relative;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--bg);transition:border-color .12s,transform .12s,box-shadow .12s}
+.upcell:hover{border-color:var(--acc);transform:translateY(-2px);box-shadow:var(--shadow)}
+.upcell.sel{border-color:var(--acc);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 45%,transparent)}
+.upcell .upprev{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:var(--code);cursor:pointer}
+.upcell .upck{position:absolute;top:7px;left:7px;width:20px;height:20px;border-radius:6px;border:1.5px solid rgba(255,255,255,.75);
+  background:rgba(20,18,14,.55);backdrop-filter:blur(3px);display:grid;place-items:center;cursor:pointer;color:#fff;font-size:13px;line-height:1}
+.upcell.sel .upck{background:var(--acc);border-color:var(--acc)}
+.upcell .uprefs{position:absolute;top:7px;right:7px;font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;
+  background:rgba(20,18,14,.62);color:#fff;backdrop-filter:blur(3px)}
+.upcell .upcap{padding:7px 9px 0;font-size:11px;font-family:ui-monospace,Consolas,monospace;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upcell .upcap.t{padding-top:2px;color:var(--faint);font-size:10px}
+.upcell .uprow{display:flex;gap:6px;padding:8px 9px 9px}
+.upcell .uprow button{flex:1;font-size:11px;padding:4px 0;border-radius:7px;border:1px solid var(--line);background:none;color:var(--mut);cursor:pointer}
+.upcell .uprow button:hover{border-color:var(--acc);color:var(--acc)}
+.upcell .uprow button.dl:hover{border-color:#ff8f7a;color:#ff8f7a}
+.upbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.upbar .selinfo{font-size:12.5px;color:var(--faint);margin-left:auto}
+.mdcell{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--bg);
+  transition:.13s;display:flex;flex-direction:column}
+.mdcell:hover{border-color:var(--acc);transform:translateY(-2px);box-shadow:var(--shadow)}
+.mdprev{position:relative;cursor:pointer;background:#000;border:0;padding:0;display:block;width:100%}
+.mdprev video,.mdprev img{width:100%;aspect-ratio:16/10;object-fit:contain;display:block;background:#000;min-height:1px}
+.mdprev img:not([src]){content:""}
+.mdprev .play{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.mdprev .play span{width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);
+  display:grid;place-items:center;color:#fff;font-size:17px;padding-left:4px;backdrop-filter:blur(2px)}
+.mdcap{padding:8px 10px 0;font-size:11.5px;font-family:ui-monospace,Consolas,monospace;color:var(--fg);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mdcap.t{padding-top:2px;color:var(--faint);font-size:10.5px}
+.mdrow{display:flex;gap:7px;padding:9px 10px 10px}
+.mdrow a,.mdrow button{flex:1;text-align:center;font-size:11.5px;padding:5px 0;border-radius:7px;
+  border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;
+  text-decoration:none;font-weight:600;font-family:inherit}
+.mdrow a:hover{border-color:var(--ok);color:var(--ok)}
+.mdrow button:hover{border-color:var(--acc);color:var(--acc)}
+#mlbBody video,#mlbBody img{max-width:100%;max-height:72vh;border-radius:9px}
+@media(max-width:640px){.mdgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+.modal{position:fixed;inset:0;background:rgba(20,18,14,.6);display:none;z-index:60;overflow-y:auto;padding:40px 20px}
+.modal.on{display:block}
+.sheet{max-width:980px;margin:0 auto;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:24px;box-shadow:var(--shadow)}
+
+@media(max-width:1000px){.cols{grid-template-columns:1fr}
+  .col.zh{border-left:0;border-top:1px solid var(--line2);padding-left:0;padding-top:16px}}
+@media(max-width:860px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;bottom:0;left:0;right:0;top:auto;height:auto;width:100%;
+    flex-direction:row;padding:6px 8px;border-right:0;border-top:1px solid var(--line);
+    z-index:50;backdrop-filter:blur(8px)}
+  .brand,.sidefoot{display:none}
+  .nav{flex-direction:column;gap:4px;margin:0;padding:7px 4px;font-size:11px;text-align:center;
+    justify-content:center;border-radius:10px}
+  .nav svg{width:19px;height:19px}
+  .nav .cnt{margin-left:0;position:absolute;top:3px;right:calc(50% - 26px);font-size:10px}
+  .main{padding:26px 18px 92px}
+  .vh{font-size:20px}
+  .card{grid-template-columns:1fr;gap:14px}
+  .card>.thumb{max-width:180px}
+  .modal{padding:12px}.sheet{padding:18px}
+}
+</style>
+
+<div class="app">
+<nav class="side">
+  <div class="sidetop">
+    <button class="hbg" id="hbg" title="收合 / 展開選單" aria-label="收合選單">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <div class="brand" style="padding:0">H3 Prompt<small>MiniMax H3 提示詞產生器</small></div>
+  </div>
+
+  <button class="nav on" data-view="run" data-tip="上傳並處理">
+    <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+    <span>上傳並處理</span><span class="cnt" id="navRun"></span></button>
+
+  <button class="nav" data-view="hist" data-tip="歷史紀錄">
+    <svg viewBox="0 0 24 24"><path d="M3 3v6h6"/><path d="M3.5 13a9 9 0 1 0 2-5.5L3 9"/><path d="M12 8v5l3 2"/></svg>
+    <span>歷史紀錄</span><span class="cnt" id="navHist"></span></button>
+
+  <button class="nav" data-view="uploads" data-tip="上傳媒體庫">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-8 8"/></svg>
+    <span>上傳媒體庫</span><span class="cnt" id="navUploads"></span></button>
+
+  <button class="nav" data-view="media" data-tip="ComfyUI 媒體庫">
+    <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20M6 4v4M10 4v4M14 4v4M18 4v4"/><path d="m10 12 5 3-5 3z"/></svg>
+    <span>ComfyUI 媒體庫</span><span class="cnt" id="navMedia"></span></button>
+
+  <button class="nav" data-view="set" data-tip="系統設定">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
+    <span>系統設定</span></button>
+
+  <div class="sidefoot">
+    <div id="sfServer"><span class="dot"></span>尚未檢查</div>
+    <div id="sfHist" style="margin-top:4px"></div>
+  </div>
+</nav>
+
+<main class="main">
+
+<!-- ============ 上傳並處理 ============ -->
+<section class="view on" id="v-run">
+  <h1 class="vh">上傳並處理</h1>
+  <p class="vs">拖入多張圖片，依檔名排序後逐一送出。每張完成即自動存進歷史紀錄。</p>
+
+  <div id="drop"><b>把圖片拖進來，或點此選檔</b>依檔名排序，一次跑一張</div>
+  <input type="file" id="files" multiple accept="image/*" hidden>
+
+  <div class="row">
+    <button id="run" disabled>開始</button>
+    <button class="ghost" id="stop" disabled>停止</button>
+    <button class="ghost" id="expj" disabled>匯出 JSON</button>
+    <button class="ghost" id="expt" disabled>匯出 TXT</button>
+    <button class="ghost" id="clear">清空清單</button>
+  </div>
+  <p class="status" id="prog"></p>
+
+  <div class="fbar" id="fbar" style="display:none">
+    <span class="flab">顯示</span>
+    <span id="fchips"></span>
+    <span class="fsep"></span>
+    <button class="ghost mini" id="fall">全選</button>
+    <button class="mini" id="frerun" disabled>重跑顯示中的</button>
+  </div>
+
+  <div id="out"></div>
+  <div class="panel" id="conv" style="display:none"></div>
+</section>
+
+<!-- ============ 歷史紀錄 ============ -->
+<section class="view" id="v-hist">
+  <h1 class="vh">歷史紀錄</h1>
+  <p class="vs">存在伺服器的 history 資料夾，區網上任何裝置看到的都是同一份。點縮圖看當時的完整結果。</p>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:12px">
+      <input type="text" id="hfilter" placeholder="以檔名篩選" style="max-width:240px">
+      <button class="ghost mini" id="hrefresh">重新整理</button>
+      <button class="ghost mini" id="hclear">全部清除</button>
+      <span class="status" id="hcount" style="margin:0"></span>
+    </div>
+    <div class="fbar" id="hfbar" style="display:none;margin-top:0">
+      <span class="flab">顯示</span>
+      <span id="hfchips"></span>
+      <span class="fsep"></span>
+      <button class="ghost mini" id="hfall">全選</button>
+      <button class="mini" id="hregen" disabled>重新生成顯示中的</button>
+      <button class="ghost mini" id="hstop" style="display:none">停止</button>
+    </div>
+    <p class="status" id="hprog"></p>
+    <div id="hgrid" class="hgrid"></div>
+  </div>
+</section>
+
+<!-- ============ 媒體庫 ============ -->
+<section class="view" id="v-uploads">
+  <h1 class="vh">上傳媒體庫</h1>
+  <p class="vs">你上傳過的每一張原圖（同一張圖只留一份）。點圖看原圖；勾選後可一鍵匯入「上傳並處理」；刪除會<b>連同用過這張圖的歷史紀錄一起刪</b>。</p>
+  <div class="panel">
+    <div class="upbar">
+      <input type="text" id="upfilter" placeholder="以檔名篩選" style="max-width:240px">
+      <button class="ghost mini" id="uprefresh">重新整理</button>
+      <button class="ghost mini" id="upselall">全選顯示中的</button>
+      <button class="ghost mini" id="upselnone">取消選取</button>
+      <button class="mini" id="upimport" disabled>匯入到上傳並處理</button>
+      <button class="ghost mini" id="updelsel" disabled>刪除選取的</button>
+      <span class="selinfo" id="upcount"></span>
+    </div>
+    <div id="upgrid" class="upgrid"></div>
+  </div>
+</section>
+
+<section class="view" id="v-media">
+  <h1 class="vh">ComfyUI 媒體庫</h1>
+  <p class="vs" id="mediaSub">ComfyUI 的輸出資料夾。點卡片放大預覽，可下載或刪除。</p>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:12px">
+      <input type="text" id="mdfilter" placeholder="以檔名篩選" style="max-width:240px">
+      <span id="mdkinds" style="display:flex;gap:7px;flex-wrap:wrap"></span>
+      <button class="ghost mini" id="mdrefresh">重新整理</button>
+      <span class="status" id="mdcount" style="margin:0"></span>
+    </div>
+    <div id="mdgrid" class="mdgrid"></div>
+  </div>
+</section>
+
+<!-- ============ 系統設定 ============ -->
+<section class="view" id="v-set">
+  <h1 class="vh">系統設定</h1>
+  <p class="vs">改完即時保存，重新整理不會消失。</p>
+
+  <div class="panel">
+    <h3>連線與生成</h3>
+    <p class="ph">temp 0.7 / top_p 0.8、thinking 關閉，是實測 11 張圖後最穩的組合。</p>
+    <div style="margin-bottom:14px">
+      <label>分鏡模式</label>
+      <div class="row" style="gap:12px">
+        <div class="modeseg">
+          <button id="mode-cuts" onclick="setMode('cuts')">硬切分鏡</button>
+          <button id="mode-onetake" onclick="setMode('onetake')">一鏡到底</button>
+        </div>
+        <span class="hint" id="modehint"></span>
+      </div>
+      <select id="mode" style="display:none"><option value="cuts">cuts</option><option value="onetake">onetake</option></select>
+    </div>
+    <div class="grid">
+      <div style="grid-column:1/-1"><label>llama-server 位址</label><input type="text" id="server"></div>
+      <div><label>影片時長</label><input type="text" id="dur" value="8 seconds"></div>
+      <div><label>temperature</label><input type="text" id="temp" value="0.7"></div>
+      <div><label>top_p</label><input type="text" id="topp" value="0.8"></div>
+      <div><label>thinking</label><select id="think">
+        <option value="0" selected>關閉（建議）</option><option value="1">開啟</option></select></div>
+      <div><label>中文翻譯</label><select id="tr">
+        <option value="1" selected>開啟</option><option value="0">關閉</option></select></div>
+      <div><label>自動重試次數</label><input type="text" id="retry" value="10"></div>
+      <div><label>重試目標</label><select id="retrylvl">
+        <option value="ok" selected>完全通過（無警告）</option>
+        <option value="noerr">無錯誤即可</option></select></div>
+    </div>
+    <p class="hint" style="margin-top:10px">生成結果不符合重試目標時自動重新生成，直到符合或用完次數，
+      並保留其中最好的一次。設 0 關閉。</p>
+    <div class="row" style="margin-top:16px">
+      <button class="ghost mini" id="ping">測試連線</button>
+      <button class="ghost mini" id="sreset">重設全部設定</button>
+    </div>
+    <p class="status" id="conn"></p>
+    <p class="status" id="saved" style="margin-top:2px"></p>
+  </div>
+
+  <div class="panel">
+    <h3>ComfyUI 整合</h3>
+    <p class="ph">「送 ComfyUI 生成」用的工作流模板 = ComfyUI 最近一次成功的生成。
+      在 ComfyUI 調好參數、成功跑一次後，按下面的按鈕更新模板；之後每次送出只替換圖片與三個欄位。</p>
+    <div class="row">
+      <button class="ghost mini" id="ctpl">用最近一次成功生成更新模板</button>
+      <span class="status" id="ctplstat" style="margin:0"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>System prompt <span class="modetag" id="spmodetag"></span></h3>
+    <p class="ph">兩種分鏡模式各有<b>獨立的一套</b> system prompt 庫；上面切換模式，這裡的清單就跟著換。
+      左邊勾選哪一組，產生時就用哪一組。編輯內容會自動保存到伺服器。</p>
+    <div class="splayout">
+      <div class="splist">
+        <div id="plist"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="ghost mini" id="pnew">新增一組</button>
+          <button class="ghost mini" id="pdup">複製目前這組</button>
+        </div>
+        <label style="margin-top:14px">從檔案匯入</label>
+        <input type="file" id="spfile" accept=".txt">
+      </div>
+      <div class="spedit">
+        <div class="row" style="margin-bottom:10px;gap:8px">
+          <input type="text" id="pname" placeholder="這組的名稱" style="max-width:280px">
+          <span class="hint" id="sptok"></span>
+          <span style="margin-left:auto"></span>
+          <button class="ghost mini" id="pdel">刪除這組</button>
+        </div>
+        <textarea id="sp" spellcheck="false"></textarea>
+        <p class="status" id="pstat"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="lorapanel">
+    <h3>LoRA 觸發詞</h3>
+    <p class="ph">存多組 LoRA 預設，左邊勾選哪一組，產生時就套用哪一組（勾「不套用」則完全不動）。兩種分鏡模式共用。
+      <b>MAIN</b> 會逐字放在 <code>integrated_multimodal_description</code> 最開頭、<code>[Shot 1]</code> 之前；
+      <b>SUB</b> 依畫面行為自動觸發（模型放佔位符，程式換成精確 key；漏了由語意比對補入），也可勾「必出現」強制。
+      <b>中文代號</b>：在圖卡的「補充劇情」裡寫到這個詞（例如「她喝東西」命中「喝東西」），該 key 就自動視為必出現 —— 你的中文直接對到 LoRA，不靠模型翻譯。</p>
+    <div class="splayout">
+      <div class="splist">
+        <div id="llist"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="ghost mini" id="lnew">新增一組</button>
+          <button class="ghost mini" id="ldup">複製目前這組</button>
+        </div>
+        <label style="margin-top:14px">從 my_lora.txt 匯入</label>
+        <input type="file" id="lfile" accept=".txt">
+      </div>
+      <div class="spedit" id="ledit">
+        <div class="row" style="margin-bottom:10px;gap:8px">
+          <input type="text" id="lname" placeholder="這組的名稱（例如：2dan1m 動漫風）" style="max-width:280px">
+          <span style="margin-left:auto"></span>
+          <button class="ghost mini" id="ldel">刪除這組</button>
+        </div>
+        <label>MAIN 觸發詞（逗號分隔，會照順序串接放最前面）</label>
+        <input type="text" id="lmain" placeholder="2dan1m" style="font-family:ui-monospace,Consolas,monospace">
+        <label style="margin-top:12px">SUB 行為 key　<span class="hint">key ＝ 精確觸發詞；說明 ＝ 英文行為描述（模型判斷用，留空則只在勾「必出現」時放入）</span></label>
+        <div class="lsubs" id="lsubs"></div>
+        <div class="row">
+          <button class="ghost mini" id="laddsub">＋ 加一個 SUB</button>
+          <span class="hint" id="lforcehint"></span>
+        </div>
+        <p class="status" id="lstat"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<div id="updlg" class="modal"><div class="sheet" style="max-width:520px">
+  <h3 style="margin:0 0 6px" id="updlgTitle">刪除上傳圖片</h3>
+  <p class="status" id="updlgMeta" style="margin:0 0 14px"></p>
+  <div id="updlgBody" style="font-size:14px;line-height:1.7;margin-bottom:16px"></div>
+  <div class="row" style="gap:8px;flex-wrap:wrap">
+    <button class="mini" id="updlgUnlink">只從庫移除（保留歷史）</button>
+    <button class="ghost mini" id="updlgCascade" style="border-color:#ff8f7a;color:#ff8f7a">連同歷史一起刪</button>
+    <span style="margin-left:auto"></span>
+    <button class="ghost mini" id="updlgCancel">取消</button>
+  </div>
+  <p class="hint" style="margin-top:12px">「只從庫移除」不會動到任何歷史紀錄——每筆紀錄都保有自己的原圖，之後照樣能點開、重跑；
+    如果日後再上傳同一張圖，這些紀錄會自動重新掛回來。</p>
+</div></div>
+
+<div id="mlb" class="modal"><div class="sheet" style="max-width:1080px">
+  <div class="row" style="justify-content:space-between;align-items:flex-start;gap:14px">
+    <div style="min-width:0"><h3 id="mlbName" style="margin:0;word-break:break-all"></h3>
+      <p class="status" id="mlbMeta" style="margin:4px 0 0"></p></div>
+    <div class="row" style="gap:7px;flex-wrap:nowrap">
+      <a class="ghost mini" id="mlbDl" style="text-decoration:none;padding:6px 12px;border:1px solid var(--line);border-radius:8px;color:var(--fg);font-size:12.5px;font-weight:600">下載</a>
+      <button class="ghost mini" id="mlbDel">刪除</button>
+      <button class="ghost mini" id="mlbClose">關閉</button>
+    </div>
+  </div>
+  <div id="mlbBody" style="margin-top:16px;text-align:center"></div>
+</div></div>
+
+<div id="modal" class="modal"><div class="sheet">
+  <div class="row" style="justify-content:space-between;align-items:flex-start;gap:14px">
+    <div style="min-width:0"><h3 id="mtitle" style="margin:0;word-break:break-all"></h3>
+      <p class="status" id="mmeta" style="margin:4px 0 0"></p></div>
+    <div class="row" style="gap:7px;flex-wrap:nowrap">
+      <button class="ghost mini" id="mcopy">複製</button>
+      <button class="ghost mini" id="mdel">刪除</button>
+      <button class="ghost mini" id="mclose">關閉</button>
+    </div>
+  </div>
+  <div id="mbody" style="margin-top:18px"></div>
+</div></div>
+
+<script src="h3-lora.js"></script>
+<script>
+const DEFAULT_SP = "# ROLE\n\nYou are a vision-enabled prompt writer for MiniMax H3. You receive one or\nmore reference images and a short user note. You output ONE finished H3\nprompt describing a video that begins from those images.\n\nTarget form is short-form video: a clear action, a small story that\nresolves, camera work that serves both.\n\nTwo independent requirements:\n\n  MAGNITUDE — the subject's BODY really moves. Not expression, not hair,\n  not cloth, not light.\n\n  SPECIFICITY — the description could only have come from THIS image. If\n  it could be transplanted onto another image and still read correctly,\n  it failed.\n\n\n# ANTI-ANCHOR NOTICE\n\nThis prompt contains no worked story examples. Infer from it no\npreference for subject type, action, genre, mood, pace, or camera style.\nThere is no house style. Every content decision comes from the image.\n\n\n# HARD FORMAT RULES (violating any one voids the output)\n\nThe capitalised names below are labels for you. Never write a label,\na number, an arrow, or a bullet marker into the output.\n\nOUTPUT PURITY — Output ONLY the finished prompt. No preamble, no analysis, no\n    headings of your own, no code fences, no closing remark.\n\nOPENING LINE — Line 1 is verbatim (adapt only per MULTI-IMAGE MODES):\n    For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nFIELD LABELS — Then exactly these three field labels, in this order, each on its own\n    line, spelled exactly:\n    integrated_multimodal_description:\n    overall_soundscape:\n    non_diegetic_music:\n\nNO PREAMBLE — Nothing may appear between line 1 and the first field label. The\n    description body begins with \"[Shot 1]\" — no text before it.\n\nCAMERA SENTENCE — EVERY shot contains exactly one camera sentence, copied from this\n    template with only the bracketed slots filled:\n\n      The camera [MOTION] with [AMPLITUDE] amplitude at [SPEED] speed.\n\n    MOTION is one of exactly these, spelled exactly:\n      pushes in | pulls out | tracks left | tracks right |\n      arcs clockwise | arcs counterclockwise | cranes up | cranes down |\n      tilts up | tilts down | pans left | pans right | whip pans |\n      holds static\n    AMPLITUDE: small | medium | large\n    SPEED: slow | moderate | fast\n\n    Nothing else is a camera move. \"tracks backward\", \"pulls back\",\n    \"tracks her\", \"follows\", \"moves with her\", \"zooms\" are all invalid —\n    a camera retreating from an approaching subject is \"pulls out\".\n    Never write the move as an adverb (\"pushes in slowly\", \"tracks\n    rapidly\"); the amplitude and speed words are mandatory and must\n    appear in that order. Do not attach a second camera action to the\n    same sentence. If the sentence needs \"then\" or \"and\", you needed a\n    cut instead.\n\nCAMERA VARIETY — Camera variety, enforced across the whole clip:\n    - at least one shot uses medium or large amplitude\n    - not every shot may be small amplitude\n    - the same MOTION may not appear twice\n    - the same AMPLITUDE+SPEED pair may not appear twice\n    - \"holds static\" at most once, and only when the subject's own\n      motion already fills the frame\n\nCENSUS GUARD — The body ends with a census guard sentence. Copy exactly ONE of the\n    two sentences below as the final sentence of the description, and\n    copy nothing else from this rule — the labels are instructions to\n    you, not text to emit.\n\n    If the reference images contain exactly one subject, the final\n    sentence is:\n    No additional people appear at any point.\n\n    If they contain exactly two subjects, the final sentence is:\n    No people beyond the two established in Picture 1 appear.\n\nCOLD OPEN — Shot 1 does not establish anything. Its first sentence after the\n    medium declaration is the trigger or the first action — never the\n    subject standing, sitting, waiting, or being located somewhere, and\n    never a description of the room, the weather, or the scenery. The\n    reference image already established all of that. If your Shot 1\n    contains the words \"stands\", \"sits\", \"is standing\", \"next to\",\n    \"in front of\", or \"surrounded by\" before the first verb of motion,\n    delete that clause.\n\nLENGTH — The description body scales with the target duration, at\n    roughly 20 words per second, all shots combined:\n\n      4-5s    ->  60-110 words\n      6-8s    ->  90-160 words\n      9-11s   -> 130-220 words\n      12-15s  -> 180-300 words\n\n    overall_soundscape is 1-3 sentences. non_diegetic_music is 1-2\n    sentences or exactly N/A. Going long is a failure, not thoroughness —\n    H3 degrades on bloated prompts.\n\n\n# STEP 1 — READ THE IMAGE\n\nNote to yourself, in one pass, no writing:\n  a. Medium — photograph / 2D cel anime / painterly illustration /\n     3D stylized render / pixel art / other.\n  b. Cast — exact count. Posture, where the weight sits, gaze, what the\n     hands hold or touch.\n  c. Space — interior/exterior, how much floor, where the edges and\n     obstacles are, what the ground is made of.\n  d. Loaded objects — anything unstable, heavy, openable, wearable,\n     breakable, throwable, or already in use.\n  e. Implied prior second — what was happening ONE SECOND BEFORE this\n     frame. A pose is almost never neutral; it is the middle of\n     something. Naming that something is usually the best answer.\n  f. Room to move — where could this body go from here, and how far?\n  g. Speech evidence — answer YES or NO to yourself. Is the mouth open in\n     a speech shape or mid-word? Is a phone, handset, headset, mic, or\n     radio at the face? Are two or more subjects oriented toward each\n     other? Is the subject performing, presenting, or facing an audience?\n     Is this a counter, shop, stage, classroom, match, or dispatch desk —\n     a place where people call to each other? Any one of these is YES.\n\n  h. Frame geometry — how tight is this crop? Full body with room to\n     spare, waist-up, or face only? Where is the spare room — above,\n     below, left, right? The user note states the pixel size, the\n     orientation, and the aspect ratio. Read it.\n\n(e) and (f) are where good outputs come from. (d) and (f) rescue an image\nthat looks static. (h) sets the ceiling on how big the action and the\ncamera moves can be. (g) decides dialogue, and you must answer it — not\nskip it. It is YES far more often than instinct suggests: a visible open\nmouth alone is enough.\n\n\n# STEP 2 — MEDIUM LOCK\n\nOpen Shot 1 with an exact medium declaration matching 1(a), e.g. \"2D\ncel-shaded anime style.\" or \"Photorealistic live-action.\"\n\nNever convert, upgrade, blend, or modernise the medium. Anime stays\nanime. Photographic stays photographic. \"live-action\" only for an actual\nphotograph or photoreal render. Re-anchor once in each later shot (\"in\nthe same 2D anime style\") so hard cuts do not drift toward realism.\n\nDescribe motion in terms native to the medium — anime gets held line art,\nflat colour blocks, smear frames on fast moves; photography gets motion\nblur, depth of field, natural grain.\n\n\n# STEP 3 — CAST LOCK\n\nThe count from 1(b) is fixed for the entire clip. No person, silhouette,\nshadow figure, reflection, hand, or body part belonging to anyone not in\nthe reference images may appear or be visually implied, unless the user\nasks. An off-screen sound cue implying someone unseen is allowed; the\nsource stays off-screen.\n\nPrefer non-human causes: weather, a falling object, a machine, gravity, a\ndevice, an animal already present.\n\n\n# STEP 4 — TRIGGER\n\nName the one cause that starts the motion:\n\n  EXTERNAL — something in or near the frame acts first: an object slips,\n  a gust hits, a device sounds, a surface gives way, an animal bolts, the\n  light changes. Prefer causes the image already contains (see 1d).\n\n  INTERNAL — the subject's own decisive initiation: planting the feet,\n  taking the grip, drawing breath before the lift, hitting play, turning\n  the key. Use when the pose already carries intent.\n\nA trigger is required. The first action must be a direct response to it.\n\n\n# STEP 5 — MOTION FLOOR (non-negotiable)\n\nAt least ONE must be literally true and written explicitly:\n\n  (A) TRANSLATE — the body moves through space by at least its own\n      width: crossing the room, closing on a target, backing away, being\n      carried, sliding, falling.\n  (B) LEVEL OR FACING — height or orientation changes: standing from\n      seated, dropping into a crouch, vaulting, rolling, spinning through\n      at least ninety degrees, going down, getting up.\n  (C) FORCE ON OBJECT — the subject applies force and the object visibly\n      responds: lifted, hurled, dragged, torn open, shoved aside, struck,\n      slammed, swung, caught in flight.\n\nFreeze test. Put the final frame beside Picture 1 and show both to a\nstranger. They must be able to say what changed about the BODY — its\nposition, height, facing, or what it holds. If the only differences are\nexpression, hair, fabric, and light → rewrite.\n\nThe commonest way to fail while believing you passed is writing attention\ninstead of movement: \"her expression hardens as she decides\", \"his gaze\nlocks on the door\", \"she braces herself\". Those are setups. After the\nsetup the body must actually go somewhere.\n\nThe floor governs HOW MUCH, never WHAT.\n\n\n# STEP 6 — PICK THE ACTION\n\nSketch three continuations to yourself, one line each, from three\nDIFFERENT lanes. All lanes clear the floor; they differ in kind.\n\n  HANDLE   — force applied to something within reach: lift, hurl, tear\n             open, shove, swing a tool, catch, stack, drag\n  CROSS    — the body travels: run, stride, dive, climb, slide, retreat,\n             push through, carry something somewhere\n  LEVEL    — height or orientation changes: rise, drop, vault, roll,\n             spin, collapse, mount, descend\n  ROUTINE  — a skilled full-body sequence that still travels or changes\n             level: a dance phrase, a martial form, a work process, a\n             performance, an athletic rep\n  RUPTURE  — something breaks, bursts, spills, collapses, ignites, or\n             transforms, and the subject drives it or answers it\n\nDo not evaluate until all three exist. Pick by SPECIFICITY: which one\nuses the most detail only THIS image supplies? Tie-break toward the lane\nyou would otherwise use less often.\n\nTwo overused defaults, both banned unless the image forces them:\n  - \"the subject runs/walks toward something off-screen\"\n  - \"the subject advances toward the camera / lens / viewer\", with the\n    camera retreating ahead of them\nThe second is the single most common generic answer and it wastes the\nframe. The camera is not a character. HANDLE and ROUTINE are underused\nand usually more specific, because they are built out of the actual\nobjects and skills the frame shows.\n\n\n# STEP 7 — CAUSAL CHAIN\n\nEach shot's action is the direct consequence of the previous one. If the\nshots could be reordered without anything breaking, rewrite.\n\nOnce the subject commits to a direction or target they do not reverse or\nswitch unless a new visible cause appears on screen. Never chain\nimpressive but unrelated moves to fill time — one objective executed with\nforce beats four spectacular fragments.\n\nProps and furniture are used or passed on the way, not destinations.\nIndoor motion stays on the floor: sprint, pivot, slide, shove obstacles\naside, leap over and land back down. Climbing onto tables, sofas, or\ncounters requires the goal to actually need the height.\n\nRole, outfit, footwear, and room size constrain what is possible.\nClearing the floor never licenses physics the scene cannot support.\n\n\n# STEP 8 — DURATION AND SHOT PLAN\n\nRead the target duration from the user's note. Accept any form — \"10s\",\n\"10 seconds\", \"10秒\", \"十秒\". If none given, use 8 seconds. Clamp to\n4-15. Whole seconds only.\n\nThree beats, fitted to the duration:\n\n  HOOK    — the trigger fires and the body is ALREADY committing. No\n            establishing pause. Something changes inside the first\n            second.\n  PURSUIT — the action meets resistance, escalates, or costs something.\n            This makes it a story instead of a gesture.\n  PAYOFF  — it lands. Arrival, impact, completion, reveal, or a clean\n            failure. The clip resolves; it does not fade out mid-motion.\n\nShot count by duration — this is a table lookup, not a judgement call:\n\n  4-5s    2 shots     HOOK+PURSUIT merged, then PAYOFF\n  6-8s    3 shots     one beat each\n  9-11s   3-4 shots   one beat each; split PURSUIT for a fourth\n  12-15s  4-5 shots   HOOK, PURSUIT split across two, PAYOFF, brief tag\n\nSHOT COUNT OVERRIDE. If the user note names a shot count (\"one\ncontinuous take\", \"exactly 2 shots\", \"3 shots\", \"4 shots\"), it replaces\nthe table above. Fit the three beats into that many shots.\n\n\"One continuous take\" means NO hard cuts at all: the beats flow inside\none unbroken action, and there is exactly one camera sentence carrying\nthe whole journey — medium or large amplitude, unless the subject's own\nmotion earns a static hold. No timestamps appear, because nothing is\ncut. The output format does not change: the description body still\nopens with the literal marker [Shot 1], and its last sentence is still\nthe census guard, sitting before overall_soundscape — never after\nnon_diegetic_music.\n\nTimestamp arithmetic, done explicitly before writing:\n- Shot 1 carries NO timestamp; it starts at 0.00.\n- Shot 2 onward begin \"At MM:SS.mmm,\" — two-digit minutes, two-digit\n  seconds, three decimals. Example form: At 00:03.000,\n- Values strictly increasing. None may reach the target duration.\n- Shots run 2.0-3.5 seconds. Under 1.5s does not read; over 4s goes\n  slack.\n- Give Shot 1 about half a second more than the others.\n- The LAST shot must start at least 1.5 seconds before the target\n  duration ends.\n- Verify the arithmetic by subtraction before writing.\n\n\n# SHORT-FORM GRAMMAR\n\n- ONE legible idea. A viewer watching muted at phone size with no context\n  must be able to say what happened. If it needs explaining, cut the\n  second idea.\n- The action must read in silhouette. If the movement is only\n  intelligible from facial detail or fine hand work, reframe closer or\n  pick a bigger action.\n- Frame for phone legibility: the key action stays near the centre and\n  reads large — but never tighter than the source framing can afford.\n  Cropping the subject to get closer is a failure (see FRAME\n  DISCIPLINE).\n- Cut ON the action, not between actions. A hard cut lands mid-movement\n  and the next shot picks that SAME movement up from a new angle. Never\n  cut during a pause.\n- Every cut needs a story reason you could name in one phrase: it shows\n  the impact, the destination, the reaction, or the cost of the same\n  action. If the new framing reveals nothing the old one could not,\n  do not cut — stay in the shot.\n- A cut changes the distance by at most ONE step on the ladder\n  wide → full body → waist-up → close, or changes the angle — never\n  both at once, never two steps. Never cut to a body part that is not\n  performing the action.\n- Never cut to a side of the subject the reference image does not show\n  — their back, a top-down view, the reverse of the room. The model\n  must invent what the picture never showed, and the invention will not\n  match the rest. Stay on the visible side.\n- Every cut is an identity re-roll: each one risks the outfit and the\n  face changing. Use the fewest shots the story truly needs — one or\n  two shots that hold together beat three that drift.\n- No slow build. Shot 1 does not establish the location — the reference\n  image already did. Start on the change.\n- Escalate. If Shot 2 is not bigger, faster, closer, or more costly than\n  Shot 1, the middle is dead.\n- End on a held image, not a fade. The last frame should be something a\n  viewer would screenshot, and it must not look like the first frame.\n\n\n# ANTI-REDUNDANCY (the most-violated rule)\n\nThe reference image is attached. Every word spent on what it already\nshows is a word not spent on what CHANGES.\n\nDo not describe: hair colour or length, eye colour, facial features,\nbuild, skin, garments or accessories, footwear, makeup, the weather,\nthe set dressing, the palette, the time of day. The ONLY exception is\nthe IDENTITY TAG below.\n\nIDENTITY TAG. In Shot 1, coin a short fixed name for the subject: a\nbare noun plus the one or two garments that define the silhouette —\n\"the woman in the red plaid skirt\", \"the man in the grey hoodie\".\nIntroduce it with the anchor: \"The woman in the red plaid skirt, as\nestablished by Picture 1, ...\".\n\nA hard cut breaks the video model's visual memory of the character —\nthe text is the only thing that survives the cut. So after EVERY hard\ncut, the first mention of the subject repeats the identity tag WORD FOR\nWORD — never a bare \"she\", never \"the woman\" alone. The tag never\ngrows and never varies: same words, every shot. This is what stops the\nskirt from becoming trousers at the cut.\n\nA garment may be described in detail ONLY when it is the thing being\nacted on and its behaviour is the action (a coat torn open, a strap\nsnapping under load). Never as scenery.\n\n\n# FINAL PASS (silent — never written down)\n\nBefore you emit anything, reread your draft once against all of the\nabove. In particular: the body must differ visibly between first and last\nframe; the description must not survive being moved to another image;\nevery noun the reference image already shows must be gone; each shot must\ncarry exactly one camera sentence in the required shape with the variety\nrules satisfied; nothing from the BANNED list may appear; the timestamps\nmust be strictly increasing, none reaching the target, the last one at\nleast 1.5 seconds before the end, with the shot count from the duration\ntable; the body must fit the word band for the target duration; and someone watching it muted at\nphone size must be able to say what happened; and in every shot the subject stays\nfully inside the frame, at a distance the source framing can afford.\n\nThen check for leakage: no rule names, no numbered lists, no arrows, no\nbracketed instruction text, no dialogue tags unless the clip has\ndialogue, nothing quoted from this brief.\n\n# OUTPUT SKELETON (form only — no content is implied here)\n\nFor the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description:\n[Shot 1] <medium declaration>. <bare subject anchor + \"as established by\nPicture 1\">. <the trigger>. <first action, responding to it>. <if STEP 1\nitem (g) was YES: the dialogue line here, in the (S1) <d>[Language]\n...</d> form, followed by the lip sentence — otherwise nothing at all\nhere>. <camera sentence per CAMERA SENTENCE>. [Shot 2] At MM:SS.mmm, hard cut to <new framing> in the\nsame <medium>. <identity tag, word for word>. <next action, caused by\nthe previous>. <camera sentence per CAMERA SENTENCE>. [Shot 3] At\nMM:SS.mmm, hard cut to <new framing> in the same <medium>. <identity\ntag, word for word>. <final state, visibly different from the start>.\n<camera sentence per CAMERA SENTENCE>. <census guard sentence per\nCENSUS GUARD>.\n\noverall_soundscape:\n<1-3 sentences of sound the characters would hear, built from the motion\nactually written above>\n\nnon_diegetic_music:\n<1-2 sentences of score, OR exactly N/A>\n\nWhen the user asked for ONE CONTINUOUS TAKE, the skeleton is identical\nexcept the description holds a single shot and nothing else:\n\nintegrated_multimodal_description:\n[Shot 1] <medium declaration>. <identity tag + \"as established by\nPicture 1\">. <the trigger>. <the action building through hook, pursuit,\nand payoff as one unbroken movement — no cuts, no timestamps>. <one\ncamera sentence per CAMERA SENTENCE>. <census guard sentence per\nCENSUS GUARD>.\n\noverall_soundscape and non_diegetic_music follow exactly as above.\n\n\n# FRAME DISCIPLINE\n\nThe video inherits the reference image's exact framing and aspect\nratio. Frame one IS Picture 1, and every move you write plays out\ninside that same rectangle. The user note states the pixel size,\norientation, and aspect ratio — let it govern the scale of everything:\n\n- Source already tight (face or bust only): there is no room to spare.\n  Do not push in. Choose action that works at this distance — force on\n  a held object, a turn, a level change — or have the camera pull out\n  first to make room before anything travels.\n- Waist-up: small translations only, or the camera tracks / pulls out\n  WITH the move in the same shot.\n- Full body with room around it: any lane, any amplitude.\n\nPortrait frames have almost no lateral room: long sideways travel\neither abandons the subject or crops them — prefer pushes, pulls,\ncranes, and tilts, and keep any tracking short. Landscape frames have\nlittle vertical room: prefer lateral tracks and arcs over big cranes.\n\nThe subject stays whole. No shot may end with the head, the hands, or\nthe limb performing the action cut off by the frame edge. If a move\nwould crop the body, the camera gives ground — pulls out or tracks — in\nthat same shot. Writing a bigger action than the frame can hold is a\nframing failure, not ambition.\n\nThe subject also stays present. They never walk, run, or slide out of\nthe frame, and the final frame of the clip contains them. If the story\nneeds a departure, the camera goes with them — it tracks; it does not\nstand still and watch them leave.\n\nTreat the source as TIGHT whenever the body already touches two\nopposite frame edges (top and bottom, or left and right) — regardless\nof how much of the body is visible. A tight source never takes \"pushes\nin\", and never takes an action that closes the remaining distance to\nthe lens.\n\n\n# MULTI-IMAGE MODES\n\nDetect from image count and the user's note.\n\nONE IMAGE — I2VA. Line 1 exactly as in OPENING LINE.\n\nTWO IMAGES read as start and end — FL2VA. Line 1 becomes: \"For the target\nvideo, <Picture 1> is the opening frame at 0.00 seconds and <Picture 2>\nis the final frame.\" Describe the path between them and state that the\nfinal composition settles precisely into Picture 2. The floor is\nsatisfied by the difference between the two frames, but the path must\nstill be real movement, not a dissolve. If the two conflict on medium,\nfollow Picture 1.\n\nTWO OR MORE IMAGES supplying different elements — Ref2VA. The pictures\nare not timeline positions; each anchors a different thing. Open with a\nsubject_definitions field before the description: \"<Subject 1> is <who>,\nwhose facial identity and build come from <Picture 1>. <Subject 2> is\n<the garment / prop / location> shown in <Picture 2>.\" Then the three\nstandard fields. Cast Lock counts every distinct person across all\npictures.\n\nWith two images and no hint: FL2VA when they show the same subject and\nspace, Ref2VA when they do not.\n\n\n# DIALOGUE — decided from the image, never by habit\n\nDo not decide this by preference. Look at the frame and check for\nevidence. If ANY of the following is visible, the clip HAS dialogue:\n\n  - the mouth is open in a speech shape, or mid-word\n  - the subject is addressing someone: pointing, waving, hand raised in\n    hail, leaning in, calling out\n  - a phone, handset, headset, microphone, or radio is at or near the face\n  - two or more subjects are oriented toward each other\n  - the subject is performing, presenting, streaming, or facing an\n    audience\n  - a sign, screen, or setting establishes a place where people call to\n    each other: a shop counter, a stage, a match, a classroom, a\n    dispatch desk\n\nIf none of those is visible, check one more thing: does the trigger you\nchose in STEP 4 hit hard and suddenly? A body reacting to impact,\nsurprise, strain, or a near miss produces an involuntary sound. One short\nexclamation is correct there.\n\nIf neither test fires, the clip has no dialogue — and then NO dialogue\ntag of any kind may appear: no <d>, no <scenetrans>, no (S1), no\nquotation marks anywhere in the output.\n\nWhen the clip does have dialogue, write it in exactly this shape, inside\nthe shot where it is spoken:\n\n  (S1) <d>[English] Get back.</d>\n\nThen, in that same shot, one of these two sentences:\n  visible speaker  → Her lips move in natural sync with the spoken words.\n  unseen speaker   → His lips remain completely closed.\n\nSpeakers keep stable IDs across the clip: (S1), (S2).\n<scenetrans>...</scenetrans> marks a cross-cut to a different location.\nNever emit it empty, and never as a sentence separator.\n\nPick the language the scene implies — signage, setting, and dress are\nevidence. Anime and Japanese settings usually imply Japanese.\n\nThen WRITE THE LINE IN THAT LANGUAGE. The bracket names the script the\nwords are actually in, and the two must match:\n\n  [Japanese] takes kana and kanji     -> (S1) <d>[Japanese] 行くよ！</d>\n  [Chinese]  takes Chinese characters -> (S1) <d>[Chinese] 快走！</d>\n  [English]  takes English words      -> (S1) <d>[English] Get back.</d>\n\nNever put English or romaji inside a [Japanese] or [Chinese] tag. If you\ncannot write the line in the language the scene implies, then tag it\n[English] and write English — a matched pair is always correct, a\nmismatched one is always an error.\n\nKeep lines under about eight words: one clip, one line, two at the very\nmost. Long speeches do not survive a short clip.\n\n# AUDIO\n\noverall_soundscape is what someone standing in the scene would hear.\nBuild it from the motion you actually wrote: the surface under the feet,\ncloth at speed, the specific object that moved, breath at real exertion,\nimpacts, the room's own tone. If it would fit any clip of this genre it\nis too generic — name the actual surfaces and objects from the frame.\n\nnon_diegetic_music is audience-only score — music the characters cannot\nhear. It is NOT a mood-setter you add because the field exists. Most\nclips do not have one.\n\nWrite N/A unless the frame contains one of these:\n  - an instrument, stage, dancefloor, club, concert, or idol setting\n  - a performance, dance, routine, or training montage as the action\n  - a title card, promo, or music-video framing\n  - the user asked for music\n\nIf none of those is present, the field is exactly:\nN/A\n\nWhen you do write it, name instrumentation and the one moment it\nchanges. Never a genre label alone. Never \"upbeat energetic track with a\ndriving bassline\" — that sentence fits every clip ever made, which is\nproof it came from habit and not from the image.\n\nNever put spoken dialogue in either audio field.\n\n\n# BANNED\n\n- Filler subject actions: breathes, blinks, sighs, gazes into the\n  distance, smiles softly, nods slightly, lips part, chest rises, hair\n  flutters gently, sways gently, shifts slightly, stands calmly, barely\n  moves. These may describe background objects, never the subject's\n  dominant action.\n- Emotion or attention substituting for movement: \"her expression\n  hardens\", \"his eyes narrow with resolve\", \"she steels herself\" as the\n  action of a shot. Allowed only as a beat immediately followed by real\n  displacement.\n- Meta and quality words: cinematic, epic, masterpiece, 8K,\n  ultra-detailed, stunning, breathtaking, highly detailed.\n- Re-describing anything the reference image already shows.\n- Medium conversion in either direction.\n- Any character not present in the reference images.\n- Negative phrasing (\"no blur\", \"not deformed\"). State what you want.\n- Genre adjectives standing in for filmable detail.\n- Camera phrasing outside the CAMERA SENTENCE template.\n- The subject advancing on the camera while the camera retreats.\n- \"fills the frame\" / \"filling the frame\" as the goal of a move, faces\n  pressed toward the lens, and any final frame that crops the subject's\n  head or hands.\n- An ending frame that matches the starting frame.\n\n\n# LAST REMINDERS (do not copy this section into the output)\n\n- EVERY shot is introduced by its own marker: [Shot 1], [Shot 2],\n   [Shot 3]. The marker is written literally, in square brackets, at the\n   start of that shot. A shot without its marker does not exist.\n\n- The sentence stating that no additional people appear is the final\n   sentence of the description, sitting inside\n   integrated_multimodal_description just before the overall_soundscape\n   label. It is a sentence, not a field: it never gets a label of its\n   own, and it never appears after non_diegetic_music.\n\n- EVERY shot ends with its own camera sentence, and that sentence is:\n   The camera [MOTION] with [small|medium|large] amplitude at\n   [slow|moderate|fast] speed.\n   Nothing before \"The camera\" in that sentence, nothing after \"speed.\"\n   Count them: one per shot, no shot without one. AMPLITUDE and SPEED\n   come from their own lists and are never swapped.\n\n- No two shots share a MOTION, and no two share an AMPLITUDE+SPEED pair.\n   At least one shot is medium or large amplitude.\n\n- Shot 1 opens on the change, not on the scene. No \"stands\", no \"sits\",\n   no scenery, no wardrobe, no weather.\n\n- The body must visibly move: position, height, facing, or what it\n   holds. Expression is not movement.\n\n- The frame is fixed: same aspect ratio and framing as Picture 1. A\n   tight source means small moves or a camera that pulls out first;\n   nothing may end with head or hands cropped, and nothing \"fills the\n   frame\".\n\n- Every hard cut has a nameable story reason and moves at most one step\n   on the distance ladder. Cutting to an uninvolved body part is a\n   failure.\n\n- After every hard cut, the subject's first mention repeats the\n   identity tag word for word. A cut followed by a bare \"she\" is how\n   the outfit changes mid-clip.\n\n- If the user asked for a shot count, deliver exactly that count. One\n   continuous take has no cuts and no timestamps.\n\n- The word band for the duration is a hard cap. Frame and cut wording\n   counts too — state it in the fewest words that do the job.\n\n- STEP 1 item (g) is not optional. Answer it before you write. If the\n   mouth is open, or a phone is at the face, or two subjects face each\n   other, or the setting is a counter / stage / classroom / match, then\n   the clip HAS a spoken line and you must write it in Shot 1. Silence is\n   a decision you earn by finding none of that in the frame — it is not\n   the default.\n\n- A dialogue line is two things, never one: the tagged line, then the\n   lip sentence. Write BOTH or write neither.\n   Every dialogue line is immediately followed by ONE of exactly these\n   two sentences, copied word for word, changing only the pronoun:\n     Her lips move in natural sync with the spoken words.\n     His lips remain completely closed.\n   Never paraphrase it. \"Her lips part\", \"she mouths the words\", \"her\n   mouth moves\" are all wrong, and the first one is a banned phrase.\n\n- The bracket and the words must be the same language. [Japanese] means\n   the line is written in kana/kanji. English words inside a [Japanese]\n   tag is the single most common dialogue error — if in doubt, tag\n   [English] and write English.\n\n- non_diegetic_music is N/A unless the frame actually shows a musical or\n   performance context. Do not score a clip out of habit.\n\n- Exactly three field labels exist, each written once: \n   integrated_multimodal_description, overall_soundscape,\n   non_diegetic_music. Never invent a fourth. Never repeat one. After the\n   text of non_diegetic_music, the output is finished — stop generating.\n";
+const $ = s => document.querySelector(s);
+const esc = t => (t||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const onServer = location.protocol.startsWith("http");
+
+/* ================= 設定持久化 ================= */
+const SKEY="h3.settings.v1", SPKEY="h3.sp.v1", VKEY="h3.view.v1";
+const FIELDS={server:"#server",dur:"#dur",temp:"#temp",topp:"#topp",think:"#think",tr:"#tr",
+              retry:"#retry",retrylvl:"#retrylvl",mode:"#mode"};
+const store={
+  get(k){try{return localStorage.getItem(k)}catch(e){return null}},
+  set(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}},
+  del(k){try{localStorage.removeItem(k)}catch(e){}}
+};
+/* llama-server address: URL ?server= > saved setting > server-side config.json > local default */
+let DEFAULT_SERVER = "http://127.0.0.1:8080";
+(() => {
+  $("#server").value = DEFAULT_SERVER;
+  const q = new URLSearchParams(location.search);
+  for (const [k,el] of Object.entries(FIELDS)) if (q.has(k)) $(el).value = q.get(k);
+  let saved={}; try{ saved = JSON.parse(store.get(SKEY)||"{}") }catch(e){}
+  for (const [k,el] of Object.entries(FIELDS))
+    if (saved[k] != null && saved[k] !== "") $(el).value = saved[k];
+  // pull the deployment default from the server; only apply if the user has not set one themselves
+  if (location.protocol.startsWith("http") && !q.has("server") && !(saved.server)){
+    fetch("/api/config").then(r => r.json()).then(c => {
+      if (c && c.llama_url){ DEFAULT_SERVER = c.llama_url; if (!$("#server").value || $("#server").value === "http://127.0.0.1:8080") { $("#server").value = c.llama_url; saveSettings(); } }
+    }).catch(() => {});
+  }
+})();
+function saveSettings(){
+  const o={}; for (const [k,el] of Object.entries(FIELDS)) o[k]=$(el).value;
+  const ok = store.set(SKEY, JSON.stringify(o));
+  $("#saved").textContent = ok ? "設定已保存" :
+    "無法保存設定 — 瀏覽器封鎖了 localStorage，或處於無痕模式";
+  clearTimeout(saveSettings.t);
+  saveSettings.t = setTimeout(()=>{ if(ok) $("#saved").textContent=""; }, 2200);
+}
+for (const el of Object.values(FIELDS)){
+  $(el).addEventListener("change", saveSettings);
+  $(el).addEventListener("input", saveSettings);
+}
+$("#sreset").onclick = () => {
+  if (!confirm("重設所有設定與自訂 system prompt？")) return;
+  store.del(SKEY); store.del(SPKEY); store.del(VKEY); store.del("h3.prompt.cuts.v1"); store.del("h3.prompt.onetake.v1");
+  location.href = location.pathname;
+};
+
+/* ================= system prompt 庫 ================= */
+const PAPI = "/api/prompts";
+const MODES = {cuts:"硬切分鏡", onetake:"一鏡到底"};
+function curMode(){ const m = $("#mode").value; return MODES[m] ? m : "cuts"; }
+function PSEL(){ return "h3.prompt." + curMode() + ".v1"; }
+const BUILTIN = {id:"builtin", name:"內建版本 v6（硬切）", text:DEFAULT_SP, builtin:true, mode:"cuts"};
+const BUILTIN_OT = {id:"builtin-onetake", name:"內建版本 v13（一鏡到底）", text:null, builtin:true, mode:"onetake"};
+let prompts = [BUILTIN, BUILTIN_OT], active = BUILTIN.id, dirty = null;
+
+function builtinFor(mode){ return mode === "onetake" ? BUILTIN_OT : BUILTIN; }
+function visiblePrompts(){ const m = curMode(); return prompts.filter(p => (p.mode || "cuts") === m); }
+function activeText(){
+  const p = prompts.find(x => x.id === active) || builtinFor(curMode());
+  return p.text != null ? p.text : (p.id === "builtin-onetake" ? (BUILTIN_OT.text || DEFAULT_SP) : DEFAULT_SP);
+}
+window.setMode = m => {
+  if (!MODES[m]) return;
+  $("#mode").value = m;
+  $("#mode-cuts").classList.toggle("on", m === "cuts");
+  $("#mode-onetake").classList.toggle("on", m === "onetake");
+  $("#modehint").textContent = m === "cuts"
+    ? "2–4 個 [Shot N] 硬切鏡頭（原本的模式）"
+    : "只有 [Shot 1]，2–3 個階段首尾相接、鏡頭連續換視角";
+  $("#spmodetag").textContent = MODES[m];
+  saveSettings();
+  // restore this mode's own active prompt
+  const want = store.get(PSEL());
+  active = visiblePrompts().some(p => p.id === want) ? want : builtinFor(m).id;
+  renderPrompts();
+  if (typeof render === "function") render();
+};
+function upTok(){
+  $("#sptok").textContent = "約 " + Math.round($("#sp").value.length / 3.6) + " tokens";
+}
+function renderPrompts(){
+  const vis = visiblePrompts();
+  if (!vis.some(p => p.id === active)) active = builtinFor(curMode()).id;
+  $("#plist").innerHTML = vis.map(p => {
+    const n = Math.round((p.text != null ? p.text.length : (p.len || 0)) / 3.6);
+    return '<button class="pitem ' + (p.id === active ? "on" : "") + '" onclick="pickPrompt(\'' + p.id + '\')">'
+      + '<span class="rd"></span><span style="min-width:0">'
+      + '<span class="nm">' + esc(p.name) + (p.builtin ? '<span class="lock">內建</span>' : "") + '</span>'
+      + '<span class="sub">' + n + ' tokens' + (p.ts ? " · " + esc(p.ts.slice(5,16)) : "") + '</span>'
+      + '</span></button>';
+  }).join("");
+  const p = prompts.find(x => x.id === active) || builtinFor(curMode());
+  $("#pname").value = p.name;
+  $("#pname").disabled = !!p.builtin;
+  $("#pdel").disabled = !!p.builtin;
+  $("#sp").value = p.text != null ? p.text : "";
+  $("#sp").readOnly = !!p.builtin;
+  upTok();
+  $("#pstat").textContent = p.builtin ? "內建版本唯讀。要改就按「複製目前這組」，改副本。" : "";
+}
+window.pickPrompt = async id => {
+  const p = prompts.find(x => x.id === id);
+  if (!p) return;
+  if (p.text == null && onServer){
+    try { p.text = (await (await fetch(PAPI + "/" + id)).json()).text; }
+    catch(e){ p.text = ""; }
+  }
+  active = id; store.set(PSEL(), id); renderPrompts();
+};
+async function loadPrompts(){
+  prompts = [BUILTIN, BUILTIN_OT];
+  // the one-take builtin lives in a sidecar file so the HTML stays readable
+  if (BUILTIN_OT.text == null){
+    try { BUILTIN_OT.text = await (await fetch("SYSTEM_PROMPT_ONETAKE_v13_web.txt", {cache:"no-store"})).text(); }
+    catch(e){ BUILTIN_OT.text = ""; }
+  }
+  if (onServer){
+    try {
+      const rows = await (await fetch(PAPI)).json();
+      for (const r of rows) prompts.push({id:r.id, name:r.name, ts:r.ts, len:r.len, text:null, mode:r.mode || "cuts"});
+    } catch(e){}
+  }
+  const want = store.get(PSEL());
+  active = visiblePrompts().some(p => p.id === want) ? want : builtinFor(curMode()).id;
+  const p = prompts.find(x => x.id === active);
+  if (p && p.text == null && onServer){
+    try { p.text = (await (await fetch(PAPI + "/" + active)).json()).text; }
+    catch(e){ p.text = ""; }
+  }
+  renderPrompts();
+}
+async function savePrompt(){
+  const p = prompts.find(x => x.id === active);
+  if (!p || p.builtin) return;
+  p.text = $("#sp").value;
+  p.name = $("#pname").value.trim() || "未命名";
+  if (!onServer){ $("#pstat").textContent = "以 file:// 開啟時無法保存到伺服器"; return; }
+  try {
+    const r = await (await fetch(PAPI, {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({id:p.id, name:p.name, text:p.text, mode:p.mode || curMode()})})).json();
+    p.ts = r.ts;
+    $("#pstat").textContent = "已保存";
+    clearTimeout(savePrompt.t);
+    savePrompt.t = setTimeout(() => $("#pstat").textContent = "", 1800);
+    renderPrompts();
+  } catch(e){ $("#pstat").textContent = "保存失敗：" + e.message; }
+}
+const debouncedSave = () => { clearTimeout(dirty); dirty = setTimeout(savePrompt, 700); };
+$("#sp").addEventListener("input", () => { upTok(); debouncedSave(); });
+$("#pname").addEventListener("input", debouncedSave);
+
+async function createPrompt(name, text){
+  if (!onServer){ alert("以 file:// 開啟時無法新增，請用 start-h3-tester.bat 啟動服務"); return; }
+  const mode = curMode();
+  const r = await (await fetch(PAPI, {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({name, text, mode})})).json();
+  prompts.push({id:r.id, name, text, ts:r.ts, mode});
+  active = r.id; store.set(PSEL(), r.id); renderPrompts();
+}
+$("#pnew").onclick = () => createPrompt("新的 prompt " + visiblePrompts().length, activeText());
+$("#pdup").onclick = () => {
+  const p = prompts.find(x => x.id === active) || builtinFor(curMode());
+  createPrompt(p.name.replace(/（副本）$/, "") + "（副本）", $("#sp").value);
+};
+$("#pdel").onclick = async () => {
+  const p = prompts.find(x => x.id === active);
+  if (!p || p.builtin) return;
+  if (!confirm("刪除「" + p.name + "」？")) return;
+  await fetch(PAPI + "/" + p.id, {method:"DELETE"});
+  prompts = prompts.filter(x => x.id !== p.id);
+  active = builtinFor(curMode()).id; store.set(PSEL(), active); renderPrompts();
+};
+$("#spfile").onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => createPrompt(f.name.replace(/\.txt$/i, ""), r.result);
+  r.readAsText(f, "utf-8");
+  e.target.value = "";
+};
+
+/* ================= LoRA 預設庫 ================= */
+const LAPI = "/api/loras", LSEL = "h3.lora.v1", LFORCE = "h3.lora.force.v1", LLOCAL = "h3.lora.local.v1";
+const LORA_NONE = {id:"none", name:"不套用 LoRA", main:"", subs:[], builtin:true};
+let loras = [LORA_NONE], lactive = LORA_NONE.id, lforce = new Set();
+let lsaveT = null;
+
+function loraActive(){ return loras.find(x => x.id === lactive) || LORA_NONE; }
+function loraCfg(){
+  const p = loraActive();
+  if (p.builtin) return null;
+  const cfg = H3Lora.build(H3Lora.splitList(p.main || ""), (p.subs || []).map(x => ({key:x.key, gloss:x.gloss, alias:x.alias||""})));
+  cfg._noteHits = loraNoteHits().map(h => h.key);      // so promptBlock can say WHY a key is required
+  return cfg;
+}
+/* the note of the image currently being generated (set by runOne / regenerate, cleared after) */
+let LORA_NOTE = "";
+function loraNoteHits(){
+  const p = loraActive(); if (p.builtin || !LORA_NOTE) return [];
+  const cfg = H3Lora.build([], (p.subs || []).map(x => ({key:x.key, gloss:x.gloss, alias:x.alias||""})));
+  return H3Lora.noteTriggers(LORA_NOTE, cfg);
+}
+/* forced = manual 必出現 ticks  ∪  keys whose Chinese alias appears in the current note */
+function loraForced(){
+  const p = loraActive(); if (p.builtin) return [];
+  const keys = new Set((p.subs || []).map(x => x.key));
+  const manual = [...lforce].filter(k => keys.has(k));
+  const fromNote = loraNoteHits().map(h => h.key).filter(k => !manual.includes(k));
+  return manual.concat(fromNote);
+}
+/* list only - safe to call at any time (never touches the editor inputs) */
+function renderLoraList(){
+  $("#llist").innerHTML = loras.map(p => {
+    const sub = p.builtin ? "產生時完全不動" : ((p.main ? "MAIN " + esc(p.main) : "無 MAIN") + " · " + (p.subs||[]).length + " SUB");
+    return '<button class="pitem ' + (p.id === lactive ? "on" : "") + '" onclick="pickLora(\'' + p.id + '\')">'
+      + '<span class="rd"></span><span style="min-width:0">'
+      + '<span class="nm">' + esc(p.name) + (p.builtin ? '<span class="lock">內建</span>' : "") + '</span>'
+      + '<span class="sub">' + sub + '</span></span></button>';
+  }).join("");
+  const fk = loraForced();
+  $("#lforcehint").textContent = fk.length ? "這次一定會出現：" + fk.join(", ") : "";
+}
+/* editor - ONLY on selection change or structural change (add/remove sub). Never during typing/save. */
+function renderLoras(){
+  renderLoraList();
+  const p = loraActive();
+  $("#ledit").classList.toggle("lora-off", !!p.builtin);
+  $("#lname").value = p.name; $("#lname").disabled = !!p.builtin;
+  $("#lmain").value = p.main || ""; $("#lmain").disabled = !!p.builtin;
+  $("#ldel").disabled = !!p.builtin; $("#laddsub").disabled = !!p.builtin;
+  if (p.builtin){
+    $("#lsubs").innerHTML = '<span class="hint">選左邊的一組，或「新增一組」。</span>';
+  } else {
+    const rows = (p.subs||[]).map((x,i) =>
+      '<tr>'
+      + '<td class="a"><input type="text" value="' + esc(x.alias||"") + '" placeholder="喝東西" data-i="' + i + '" data-f="alias" title="補充劇情裡出現這個詞，這個 key 就一定會出現"></td>'
+      + '<td class="k"><input type="text" value="' + esc(x.key) + '" placeholder="dr1nk" data-i="' + i + '" data-f="key"></td>'
+      + '<td><input type="text" value="' + esc(x.gloss||"") + '" placeholder="drinks from a bottle or cup" data-i="' + i + '" data-f="gloss"></td>'
+      + '<td class="f"><input type="checkbox" data-i="' + i + '" data-f="force" ' + (lforce.has(x.key) ? "checked" : "") + ' title="這次一定要出現"></td>'
+      + '<td class="d"><button class="x" data-i="' + i + '" data-f="del" title="移除這個 key">✕</button></td>'
+      + '</tr>').join("");
+    $("#lsubs").innerHTML =
+      '<table class="ltab"><thead><tr>'
+      + '<th class="a" title="在「補充劇情」裡寫到這個詞，對應的 key 就會被強制放入">中文代號</th><th>Key（觸發詞）</th><th>行為說明（英文，模型判斷用）</th><th class="f" title="勾了就保證出現，不看畫面">必出現</th><th class="d"></th>'
+      + '</tr></thead><tbody>'
+      + (rows || '<tr><td colspan="5" class="empty">還沒有 SUB key，按下面「＋ 加一個 SUB」。</td></tr>')
+      + '</tbody></table>';
+  }
+  $("#lstat").textContent = p.builtin ? "" : ("已儲存 · " + (p.ts || ""));
+}
+window.pickLora = async id => {
+  if (lsaveT){ clearTimeout(lsaveT); lsaveT = null; await loraSave(); }   // flush pending edits of the old preset
+  lactive = id; store.set(LSEL, id); renderLoras();
+};
+window.addEventListener("beforeunload", () => {
+  if (!lsaveT) return;
+  clearTimeout(lsaveT); lsaveT = null;
+  try{
+    const p = loraCollect(); if (!p) return;
+    if (onServer && !/^local/.test(p.id) && navigator.sendBeacon){
+      // fetch() is cancelled on unload; sendBeacon is the only reliable way to flush
+      navigator.sendBeacon(LAPI, new Blob([JSON.stringify({id:p.id, name:p.name, main:p.main, subs:p.subs})], {type:"application/json"}));
+    } else loraPersistLocal();
+  }catch(e){}
+});
+
+function loraCollect(){
+  const p = loraActive(); if (p.builtin) return null;
+  p.name = $("#lname").value.trim() || "未命名";
+  p.main = $("#lmain").value.trim();
+  const rows = [...$("#lsubs").querySelectorAll("table.ltab tbody tr")].filter(r => r.querySelector('[data-f="key"]'));
+  const subs = [], seen = new Set();
+  for (const r of rows){
+    const key = r.querySelector('[data-f="key"]').value.trim();
+    const gloss = r.querySelector('[data-f="gloss"]').value.trim();
+    const alias = (r.querySelector('[data-f="alias"]') || {value:""}).value.trim();
+    if (!key || seen.has(key.toLowerCase())) continue;
+    seen.add(key.toLowerCase()); subs.push({key, gloss, alias});
+  }
+  p.subs = subs;
+  lforce = new Set([...lforce].filter(k => subs.some(x => x.key === k)));
+  store.set(LFORCE, JSON.stringify([...lforce]));
+  return p;
+}
+function loraPersistLocal(){ store.set(LLOCAL, JSON.stringify(loras.filter(x => !x.builtin))); }
+async function loraSave(){
+  const p = loraCollect(); if (!p) return;
+  if (onServer){
+    const body = {id: /^local/.test(p.id) ? undefined : p.id, name: p.name, main: p.main, subs: p.subs};
+    try{
+      const r = await (await fetch(LAPI, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)})).json();
+      if (r.error) throw new Error(r.error);
+      p.ts = r.ts; if (r.id && p.id !== r.id){ p.id = r.id; lactive = r.id; store.set(LSEL, r.id); }
+      $("#lstat").textContent = "已儲存到伺服器 · " + r.ts;
+    }catch(e){ $("#lstat").textContent = "儲存失敗：" + e.message; return; }
+  } else { loraPersistLocal(); $("#lstat").textContent = "已儲存（瀏覽器本機）"; }
+  renderLoraList();            // list subtitle + force hint only - the editor is left exactly as the user has it
+}
+function loraSaveSoon(){ clearTimeout(lsaveT); lsaveT = setTimeout(loraSave, 700); }
+async function loadLoras(){
+  loras = [LORA_NONE];
+  if (onServer){
+    try{
+      const rows = await (await fetch(LAPI)).json();
+      for (const r of rows){ try{ loras.push(await (await fetch(LAPI + "/" + r.id)).json()); }catch(e){} }
+    }catch(e){}
+  } else { try{ loras = loras.concat(JSON.parse(store.get(LLOCAL) || "[]")); }catch(e){} }
+  try{ lforce = new Set(JSON.parse(store.get(LFORCE) || "[]")); }catch(e){ lforce = new Set(); }
+  const want = store.get(LSEL);
+  lactive = loras.some(x => x.id === want) ? want : LORA_NONE.id;
+  renderLoras();
+}
+async function loraCreate(p){
+  loras.push(p); lactive = p.id; renderLoras();
+  if (onServer) await loraSave(); else { loraPersistLocal(); store.set(LSEL, p.id); }
+}
+$("#lnew").onclick = () => loraCreate({id: "local" + Date.now(), name: "新 LoRA", main: "", subs: [], ts: ""});
+$("#ldup").onclick = () => { const src = loraActive(); if (src.builtin) return;
+  loraCreate({id: "local" + Date.now(), name: src.name + "（副本）", main: src.main, subs: JSON.parse(JSON.stringify(src.subs||[])), ts: ""}); };
+$("#ldel").onclick = async () => {
+  const p = loraActive(); if (p.builtin) return;
+  if (!confirm("刪除「" + p.name + "」？")) return;
+  if (onServer && !/^local/.test(p.id)){ try{ await fetch(LAPI + "/" + p.id, {method:"DELETE"}); }catch(e){} }
+  loras = loras.filter(x => x.id !== p.id); lactive = LORA_NONE.id; store.set(LSEL, lactive);
+  if (!onServer) loraPersistLocal();
+  renderLoras();
+};
+$("#laddsub").onclick = () => { const p = loraActive(); if (p.builtin) return; loraCollect(); (p.subs = p.subs||[]).push({key:"", gloss:"", alias:""}); renderLoras();
+  const last = $("#lsubs").querySelector("table.ltab tbody tr:last-child input"); if (last) last.focus(); };
+$("#lname").addEventListener("input", loraSaveSoon);
+$("#lmain").addEventListener("input", loraSaveSoon);
+$("#lsubs").addEventListener("input", e => { if (["key","gloss","alias"].includes(e.target.dataset.f)) loraSaveSoon(); });
+$("#lsubs").addEventListener("change", e => {
+  if (e.target.dataset.f !== "force") return;
+  const p = loraActive(); const key = ((p.subs||[])[+e.target.dataset.i]||{}).key; if (!key) return;
+  if (e.target.checked) lforce.add(key); else lforce.delete(key);
+  store.set(LFORCE, JSON.stringify([...lforce])); renderLoraList();
+});
+$("#lsubs").addEventListener("click", e => {
+  if (e.target.dataset.f !== "del") return;
+  const p = loraActive(); if (p.builtin) return;
+  loraCollect();                              // capture any in-progress edits in OTHER rows first
+  p.subs.splice(+e.target.dataset.i, 1); renderLoras(); loraSaveSoon();
+});
+$("#lfile").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const cfg = H3Lora.parseText(await f.text());
+  await loraCreate({id: "local" + Date.now(), name: f.name.replace(/\.txt$/i, ""), main: cfg.mainText, subs: cfg.subs, ts: ""});
+  e.target.value = "";
+};
+/* snapshot of everything that shaped a generation, stored on the history record so it can be re-run as-is */
+function genContext(){
+  const p = prompts.find(x => x.id === active) || builtinFor(curMode());
+  const lp = loraActive();
+  const cfg = loraCfg();
+  return {
+    mode: curMode(),
+    prompt_id: p.id, prompt_name: p.name,
+    lora: cfg ? {preset_id: lp.id, preset_name: lp.name, main: cfg.mainText,
+                 subs: cfg.subs.map(x => ({key:x.key, gloss:x.gloss, alias:x.alias||""})), forced: loraForced(),
+                 note_hits: loraNoteHits()} : null,
+  };
+}
+/* run fn() with the UI temporarily switched to a saved context (mode / prompt / lora), then restore */
+async function withContext(ctx, fn){
+  const saved = {mode: curMode(), active, lactive, lforce: new Set(lforce)};
+  // temp mode switch: set the hidden <select> only - do NOT go through setMode(), which persists to
+  // localStorage and re-renders the run tab. curMode()/shotLine()/validate() all read the <select>.
+  const tmpMode = m => { $("#mode").value = m; };
+  const restore = () => { tmpMode(saved.mode); active = saved.active; lactive = saved.lactive; lforce = saved.lforce; renderPrompts(); renderLoras(); };
+  try{
+    if (ctx.mode && MODES[ctx.mode] && ctx.mode !== curMode()) tmpMode(ctx.mode);
+    if (ctx.prompt_id && prompts.some(x => x.id === ctx.prompt_id)){
+      active = ctx.prompt_id;
+      const pp = prompts.find(x => x.id === active);
+      if (pp && pp.text == null && onServer){ try{ pp.text = (await (await fetch(PAPI + "/" + active)).json()).text; }catch(e){ pp.text = ""; } }
+    }
+    if (ctx.lora && ctx.lora.main !== undefined){
+      // prefer the live preset if it still exists; otherwise materialise the snapshot as a temp preset
+      let lp = loras.find(x => x.id === ctx.lora.preset_id);
+      if (!lp){
+        lp = {id: "snap-" + Date.now(), name: (ctx.lora.preset_name || "當時的 LoRA") + "（快照）", main: ctx.lora.main, subs: ctx.lora.subs || [], builtin: false, snapshot: true};
+        loras.push(lp);
+      }
+      lactive = lp.id;
+      lforce = new Set(ctx.lora.forced || []);
+    } else {
+      // ctx.lora === null  -> record was made with LoRA explicitly off
+      // ctx.lora undefined -> record predates the LoRA feature (imported / old history)
+      // Both mean: reproduce WITHOUT LoRA. Never let the currently-selected preset leak into an old record.
+      lactive = LORA_NONE.id;
+      lforce = new Set();
+    }
+    renderPrompts(); renderLoras();
+    return await fn();
+  } finally {
+    // drop any temp snapshot presets we materialised
+    loras = loras.filter(x => !x.snapshot);
+    restore();
+  }
+}
+function ctxLabel(ctx){
+  if (!ctx) return "";
+  const m = ctx.mode === "onetake" ? "一鏡到底" : "硬切分鏡";
+  const parts = [`<span class="${ctx.mode==="onetake"?"ot":""}">模式<b>${m}</b></span>`];
+  const legacy = ctx.lora === undefined && !ctx.prompt_name;   // record predates the mode/prompt/LoRA tracking
+  if (ctx.prompt_name) parts.push(`<span>Prompt<b>${esc(ctx.prompt_name)}</b></span>`);
+  else if (legacy) parts.push(`<span>Prompt<b>（舊紀錄，未記錄）</b></span>`);
+  parts.push(legacy ? `<span>LoRA<b>（舊紀錄，重跑不套用）</b></span>` : ctx.lora && ctx.lora.main !== undefined
+    ? `<span>LoRA<b>${esc(ctx.lora.preset_name || "")}</b>${ctx.lora.main?` · ${esc(ctx.lora.main)}`:""}${(ctx.lora.forced||[]).length?` · 必出現 ${esc(ctx.lora.forced.join(","))}`:""}${(ctx.lora.note_hits||[]).length?` · 劇情觸發 ${esc(ctx.lora.note_hits.map(x=>x.alias+"→"+x.key).join(", "))}`:""}</span>`
+    : `<span>LoRA<b>未套用</b></span>`);
+  return `<div class="ctx">${parts.join("")}</div>`;
+}
+
+/* apply LoRA to a finished content string; returns {content, lora} */
+function loraApply(content){
+  const cfg = loraCfg(); if (!cfg) return {content, lora: null};
+  const forced = loraForced();
+  const r = H3Lora.applyToContent(content, cfg, forced);
+  const imd = field(r.content, "integrated_multimodal_description:", "overall_soundscape:");
+  const probs = H3Lora.verify(imd, cfg, forced);
+  return {content: r.content, lora: {preset: loraActive().name, main: cfg.mainText, report: r.report, fixes: r.fixes, issues: r.issues.concat(probs), forced,
+          note_hits: loraNoteHits()}};
+}
+function loraSystemSuffix(){ const cfg = loraCfg(); return cfg ? "\n" + H3Lora.promptBlock(cfg, loraForced()) : ""; }
+function loraBadges(lo){
+  if (!lo) return "";
+  let h = "";
+  if (lo.main) h += '<span class="lbadge m">MAIN ' + esc(lo.main) + '</span>';
+  const rep = lo.report || {};
+  const gi = new Set(rep.subs_gloss_injected || []), fa = new Set(rep.subs_forced_appended || []);
+  const nh = {}; for (const x of (lo.note_hits || [])) nh[x.key] = x.alias;
+  const all = [...new Set([...(rep.subs_placed||[]), ...(rep.subs_gloss_injected||[]), ...(rep.subs_forced_appended||[])])];
+  for (const k of all){
+    let src = fa.has(k) ? "強制補入" : (gi.has(k) ? "語意補入" : "模型放置");
+    if (nh[k]) src = "劇情「" + nh[k] + "」→ " + src;
+    h += '<span class="lbadge s"><b>' + esc(k) + '</b><i>' + esc(src) + '</i></span>';
+  }
+  if (!all.length && lo.main) h += '<span class="lbadge s"><i>無 SUB 觸發</i></span>';
+  for (const x of (lo.issues||[])) h += '<span class="lbadge f">' + esc(x) + '</span>';
+  return '<div style="margin:6px 0 2px">' + h + '</div>';
+}
+
+/* ================= 分頁切換 ================= */
+function setView(v){
+  document.querySelectorAll(".nav").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
+  store.set(VKEY, v);
+  window.scrollTo(0, 0);
+  if (v === "hist") loadHist();
+  if (v === "media") loadMedia();
+  if (v === "uploads") loadUploads();
+}
+/* ---- collapsible sidebar ---- */
+const SIDEKEY = "h3.side.collapsed.v1";
+function setSide(collapsed){
+  document.querySelector(".app").classList.toggle("collapsed", !!collapsed);
+  store.set(SIDEKEY, collapsed ? "1" : "0");
+  $("#hbg").title = collapsed ? "展開選單" : "收合選單";
+}
+$("#hbg").onclick = () => setSide(!document.querySelector(".app").classList.contains("collapsed"));
+setSide(store.get(SIDEKEY) === "1");
+document.querySelectorAll(".nav").forEach(b => b.onclick = () => setView(b.dataset.view));
+// 還原上次分頁的呼叫移到 script 末尾——loadMedia/loadHist 等函式都宣告完才能安全執行
+
+/* ================= 常數與驗證 ================= */
+const MOTIONS=["pushes in","pulls out","tracks left","tracks right","arcs clockwise",
+ "arcs counterclockwise","cranes up","cranes down","tilts up","tilts down","pans left",
+ "pans right","whip pans","holds static"];
+const BANNED=[/\bbreathes?\b/,/\bbreathing\b/,/\bblinks?\b/,/\bblinking\b/,/\bsighs?\b/,/\bsighing\b/,
+ /chest ris(?:es|ing)/,/lips (?:part|parting)/,/smil(?:es|ing) softly/,/nod(?:s|ding) slightly/,
+ /hair flutter(?:s|ing)/,/sway(?:s|ing) gently/,/shift(?:s|ing) slightly/,/stand(?:s|ing) calmly/,
+ /barely mov(?:es|ing)/,/gaz(?:es|ing) into the distance/,/\bcinematic\b/,/\bepic\b/,
+ /\bmasterpiece\b/,/\b8k\b/,/ultra-detailed/,/\bstunning\b/,/\bbreathtaking\b/,/highly detailed/];
+const SHOT_TABLE={4:[2,2],5:[2,2],6:[2,3],7:[2,3],8:[2,3],9:[3,4],10:[3,4],11:[3,4],
+ 12:[4,5],13:[4,5],14:[4,5],15:[4,5]};
+const WORD_BAND={4:[60,110],5:[60,110],6:[90,160],7:[90,160],8:[90,160],9:[130,220],
+ 10:[130,220],11:[130,220],12:[180,300],13:[180,300],14:[180,300],15:[180,300]};
+
+function validate(c, target, wantShots){
+  wantShots = parseInt(wantShots) || 0;
+  const E=[], W=[], I=[];   // E=錯誤 W=警告(會觸發重試) I=提示(只顯示，不重試)
+  const body = c.includes("\n") ? c.slice(c.indexOf("\n")+1) : "";
+  if (c.includes("<think>")) E.push("<think> 洩漏進 content");
+  const labs=["integrated_multimodal_description:","overall_soundscape:","non_diegetic_music:"];
+  const idx = labs.map(l => c.indexOf(l));
+  labs.forEach((l,i)=>{ if(idx[i]<0) E.push("缺少欄位 "+l) });
+  if (idx.every(i=>i>=0) && !(idx[0]<idx[1] && idx[1]<idx[2])) E.push("欄位順序錯誤");
+  labs.forEach(l => { if (c.split(l).length > 2) E.push("欄位 "+l+" 出現多次") });
+  if (!c.startsWith("For the target video")) E.push("開頭固定句不正確");
+  if (/^\s*```/m.test(c)) E.push("輸出含程式碼框");
+
+  let pre = body.includes("[Shot 1]")
+    ? body.slice(0, body.indexOf("[Shot 1]")).replace(/integrated_multimodal_description:/,"").trim() : "";
+  /* a LoRA MAIN trigger legitimately sits before [Shot 1] after post-processing ("2dan1m, [Shot 1] ...").
+     Recognise the shape itself (short comma-terminated token list) so re-validating old records works even
+     when the current UI has a different LoRA (or none) selected. */
+  if (/^[A-Za-z0-9_\-]{1,32}(?:,\s*[A-Za-z0-9_\-]{1,32}){0,5},$/.test(pre)) pre = "";
+  if (pre.length > 5) E.push("[Shot 1] 之前有多餘文字：" + pre.slice(0,50));
+
+  const shots=[...body.matchAll(/\[Shot (\d+)\]/g)].map(m=>+m[1]);
+  if (shots.join() !== shots.map((_,i)=>i+1).join()) E.push("鏡頭編號異常 "+JSON.stringify(shots));
+  const ts=[...body.matchAll(/At (\d{2}):(\d{2}\.\d{3})/g)].map(m=>+m[1]*60+parseFloat(m[2]));
+  if (ts.join() !== [...new Set(ts)].sort((a,b)=>a-b).join()) E.push("時間戳未嚴格遞增 "+JSON.stringify(ts));
+  if (ts.length && Math.max(...ts) >= target) E.push(`時間戳 ${Math.max(...ts)} 已達或超過目標 ${target}s`);
+  if (ts.length && target - Math.max(...ts) < 1.5)
+    E.push(`末鏡只剩 ${(target-Math.max(...ts)).toFixed(2)}s，不足 1.5s`);
+  if (shots.length && shots.length !== ts.length+1) W.push(`${shots.length} 鏡但 ${ts.length} 個時間戳`);
+  if (wantShots){
+    if (shots.length !== wantShots)
+      E.push(`要求${wantShots===1?"一鏡到底":wantShots+" 鏡"}，實際 ${shots.length} 鏡`);
+    if (wantShots === 1){
+      if (/hard cut/i.test(body)) E.push("一鏡到底不可出現 hard cut");
+      if (ts.length) E.push("一鏡到底不可有時間戳");
+    }
+  } else {
+    const exp = SHOT_TABLE[Math.round(target)] || [2,5];
+    if (shots.length && (shots.length<exp[0] || shots.length>exp[1]))
+      E.push(`${shots.length} 鏡，時長表要求 ${exp[0]}–${exp[1]} 鏡`);
+  }
+
+  const oneTake = curMode() === "onetake";
+  let moves = [], pairs = [];
+  if (!oneTake){
+    /* ---- 硬切模式：v6 的嚴格 camera 句型 ---- */
+    const re=/[Tt]he camera ([a-z ]{3,28}?) with (small|medium|large) amplitude at (slow|moderate|fast) speed/g;
+    const cams=[...body.matchAll(re)];
+    moves=cams.map(m=>m[1].trim()); pairs=cams.map(m=>m[2]+"/"+m[3]);
+    moves.forEach(m=>{ if(!MOTIONS.includes(m)) E.push(`非法運鏡 "${m}"`) });
+    if (shots.length && cams.length < shots.length) E.push(`${cams.length}/${shots.length} 鏡符合 camera 句型`);
+    const statics = moves.filter(m=>m==="holds static").length;
+    if (statics > 1) E.push(`${statics} 個靜止鏡頭（上限 1）`);
+    if (pairs.length && !cams.some(m=>m[2]==="medium"||m[2]==="large")) E.push("沒有任何一鏡用 medium/large 幅度");
+    if (pairs.length>1 && new Set(pairs).size===1) E.push("每鏡幅度+速度完全相同");
+    if (new Set(moves).size < moves.length)
+      W.push("運鏡重複："+moves.filter((m,i)=>moves.indexOf(m)!==i).join(", "));
+    if (!/No additional people appear at any point\.|No people beyond the two established in Picture 1 appear\./.test(c))
+      E.push("缺少 census guard 句");
+  } else {
+    /* ---- 一鏡到底模式：v13 / DaSiWa 官方詞彙 ----
+       運鏡句 = "The camera <動詞散文> with small|large amplitude at slow|fast speed."
+       每個階段一句、動詞家族不重複、push/zoom 只能在最後。 */
+    const re=/[Tt]he camera ([a-z][^.]{2,120}?) with (small|large|medium) amplitude at (slow|fast|moderate) speed/g;
+    const cams=[...body.matchAll(re)];
+    moves=cams.map(m=>m[1].trim()); pairs=cams.map(m=>m[2]+"/"+m[3]);
+    const fam = t => { t=t.toLowerCase();
+      for (const k of ["track","truck","arc","pan","pedestal","tilt","roll","shake","pov","crane","dolly"]) if (t.includes(k)) return k;
+      if (/push|zoom|move[sd]? (in|closer)|close[sd]? in/.test(t)) return "push/zoom";
+      if (/pull|move[sd]? (out|back|away)/.test(t)) return "pull";
+      return null; };
+    const fams = cams.map(m => fam(m[1]));
+    fams.forEach((f,i)=>{ if(!f) E.push(`運鏡動詞無法辨識 "${cams[i][1].trim().slice(0,40)}"`) });
+    cams.forEach(m=>{ if (m[2]==="medium"||m[3]==="moderate") W.push("一鏡到底只用 small/large 與 slow/fast（medium/moderate 非官方詞彙）"); });
+    /* 階段數：以 prose cue 粗估，至少要 2 句運鏡 */
+    const phaseCues = (body.match(/(?:^|[.;] )(?:Then,|And finally,|Then she|She then|And then|A moment later|By the end|Finally,|As she (?:completes|finishes|reaches|straightens|turns|stops|lands|settles)|Once she|After that|From there|Next,|Now she|With that)(?![A-Za-z])/g)||[]).length;
+    const wantCams = Math.min(3, Math.max(2, 1 + phaseCues));
+    if (cams.length < 2) E.push(`一鏡到底只有 ${cams.length} 句運鏡（每階段一句，至少 2）`);
+    else if (cams.length < wantCams) I.push(`${cams.length} 句運鏡但約 ${wantCams} 個階段（建議每階段一句）`);
+    if (cams.length > 4) W.push(`${cams.length} 句運鏡（建議 ≤3）`);
+    const dup = fams.filter((f,i)=>f && fams.indexOf(f)!==i);
+    if (dup.length) E.push("運鏡動詞家族重複："+[...new Set(dup)].join(", "));
+    const pz = fams.map((f,i)=>f==="push/zoom"?i:-1).filter(i=>i>=0);
+    if (pz.length>1) E.push("push/zoom 出現超過一次");
+    else if (pz.length===1 && pz[0]!==fams.length-1) I.push("push/zoom 不在最後一個階段（建議留給收尾）");
+    if (/(?<![A-Za-z])cut(?:s|ting)? to(?![A-Za-z])|hard cut|(?<![A-Za-z])jumps? to(?![A-Za-z])/i.test(body)) E.push("一鏡到底不可出現 cut to / hard cut");
+    if (!/No additional people/i.test(c)) E.push("缺少 No additional people 子句");
+    if (!/Preserve/.test(c)) W.push("缺少 Preserve 子句");
+  }
+
+  if (c.includes("<d>")){
+    const dl=[...c.matchAll(/\(S\d\)\s*<d>\[([^\]]+)\]([^<]*)<\/d>/g)];
+    if (!dl.length) E.push("有對白但不是 (S1) <d>[語言] …</d> 格式");
+    if (!/lips move in natural sync|lips remain completely closed/.test(c))
+      E.push("有對白但缺少嘴型句（須逐字照抄）");
+    for (const m of dl){
+      const cjk=/[぀-ヿ一-鿿가-힯]/.test(m[2]);
+      const L=m[1].trim().toLowerCase();
+      if (["japanese","chinese","korean","mandarin"].includes(L) && !cjk)
+        E.push(`語言標籤 [${m[1]}] 但內容不是該語言：${m[2].trim().slice(0,30)}`);
+      if (L==="english" && cjk) E.push("語言標籤 [English] 但內容不是英文");
+    }
+    if (dl.length>2) W.push(`${dl.length} 句對白（建議 1 句，最多 2 句）`);
+  } else {
+    for (const t of ["<scenetrans>","(S1)","</d>"])
+      if (c.includes(t)) E.push(`沒有對白卻殘留標籤 ${t}`);
+  }
+
+  const low = c.toLowerCase()
+    .replace(/lips move in natural sync with the spoken words\./g,"")
+    .replace(/lips remain completely closed\./g,"");
+  const hits = BANNED.map(r => (low.match(r)||[])[0]).filter(Boolean);
+  if (hits.length) E.push("禁用詞："+hits.join(", "));
+
+  const wl = body.split("overall_soundscape:")[0].replace(/\[Shot \d+\]/g," ").trim().split(/\s+/).length;
+  let band = WORD_BAND[Math.round(target)] || [90,160];
+  if (wantShots === 1) band = [50, band[1]];   // 一鏡到底本來就短
+  if (wl > band[1]*1.25) E.push(`描述 ${wl} 字（${target}s 的區間是 ${band[0]}–${band[1]}）`);
+  else if (wl > band[1] || wl < band[0]) W.push(`描述 ${wl} 字（${target}s 的區間是 ${band[0]}–${band[1]}）`);
+
+  if (curMode() !== "onetake" && !/\[Shot 1\][^.]{0,140}(anime|live-action|photorealistic|illustration|render|pixel art|painterly|cel)/i.test(body))
+    W.push("Shot 1 開頭沒有媒材宣告");
+  if (curMode() !== "onetake" &&
+      /toward the (camera|lens|viewer)|into the lens|tracks backward|pulls back|clos(es|ing) (the )?distance to the (viewer|camera|lens)/i.test(body))
+    W.push("主體朝鏡頭衝／攝影機後退（已被禁的通用答案）");
+  if (/fill(s|ing) the frame/i.test(body))
+    E.push("出現「fills the frame」——會導致過近或裁切");
+  if (/exit(s|ing) the frame|out of view|out of frame|leaves? the frame|walks? out of shot/i.test(body))
+    E.push("主體離開畫面——結尾畫面必須包含主體");
+  if (/hard cut to [^.]{0,50}close-?up of (her|his|their) (chest|bust|cleavage|feet|legs|thighs|hips|butt)/i.test(body))
+    W.push("切到與動作無關的身體部位特寫");
+  return {E, W, I, moves, pairs};
+}
+
+/* ================= 連線 ================= */
+function setDot(state, text){
+  $("#sfServer").innerHTML = `<span class="dot ${state}"></span>${text}`;
+}
+$("#ping").onclick = async () => {
+  $("#conn").textContent = "連線中…"; setDot("", "檢查中…");
+  try{
+    const j = await (await fetch($("#server").value.replace(/\/$/,"") + "/props")).json();
+    $("#conn").innerHTML = `<span style="color:var(--ok)">連線正常</span> · ${j.model_ftype||"?"}`
+      + ` · vision ${j.modalities?.vision?"on":"off"} · ctx ${j.default_generation_settings?.n_ctx||"?"}`;
+    setDot("up", "llama-server 正常");
+  }catch(e){
+    $("#conn").innerHTML = `<span style="color:var(--acc)">連不上</span> — ${e.message}`;
+    setDot("down", "llama-server 連不上");
+  }
+};
+
+/* ================= 檔案 ================= */
+let items=[], abort=false;
+const drop=$("#drop");
+drop.onclick=()=>$("#files").click();
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("hot")};
+drop.ondragleave=()=>drop.classList.remove("hot");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("hot");add(e.dataTransfer.files)};
+$("#files").onchange=e=>add(e.target.files);
+
+function add(fl){
+  const imgs=[...fl].filter(f=>f.type.startsWith("image/"));
+  imgs.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  for (const f of imgs) items.push({file:f, name:f.name, state:"pending",
+    preview: URL.createObjectURL(f)});
+  render(); $("#run").disabled = !items.length;
+  $("#prog").textContent = `${items.length} 張待處理`;
+  $("#navRun").textContent = items.length || "";
+}
+
+function encode(file){
+  return new Promise((res,rej)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const s=Math.min(1,1024/Math.max(img.width,img.height));
+      const c=document.createElement("canvas");
+      c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      const full=c.toDataURL("image/jpeg",0.9);
+      const s2=Math.min(1,300/Math.max(c.width,c.height));
+      const t=document.createElement("canvas");
+      t.width=Math.round(c.width*s2); t.height=Math.round(c.height*s2);
+      t.getContext("2d").drawImage(c,0,0,t.width,t.height);
+      URL.revokeObjectURL(url);
+      res({b64:full, thumb:t.toDataURL("image/jpeg",0.62), w:img.width, h:img.height});
+    };
+    img.onerror=rej; img.src=url;
+  });
+}
+
+/* 模型偶爾不吐 EOS 會把三個欄位再寫一遍，這裡切掉 */
+function trim(c){
+  const k="non_diegetic_music:", i=c.indexOf(k);
+  if (i<0) return c.trim();
+  const head=c.slice(0,i+k.length);
+  let tail=c.slice(i+k.length);
+  const m=tail.match(/\n\s*\n/); if (m) tail=tail.slice(0,m.index);
+  return (head+tail).trim();
+}
+
+async function chat(messages, opts={}){
+  const r = await fetch($("#server").value.replace(/\/$/,"") + "/v1/chat/completions", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({model:"qwen-i2v", messages, stream:false,
+      temperature: opts.temp ?? parseFloat($("#temp").value),
+      top_p: opts.topp ?? parseFloat($("#topp").value), top_k:20,
+      max_tokens: opts.max ?? 1600,
+      chat_template_kwargs:{enable_thinking: $("#think").value === "1"}})});
+  if (!r.ok) throw new Error("HTTP "+r.status+" "+(await r.text()).slice(0,200));
+  return r.json();
+}
+
+function frameLine(w, h){
+  if (!w || !h) return "";
+  const r = w / h;
+  const std = [["9:16",9/16],["2:3",2/3],["3:4",3/4],["4:5",4/5],["1:1",1],
+               ["5:4",5/4],["4:3",4/3],["3:2",3/2],["16:9",16/9]];
+  let best = std[0];
+  for (const x of std) if (Math.abs(x[1]-r) < Math.abs(best[1]-r)) best = x;
+  const ori = r < 0.95 ? "portrait" : (r > 1.05 ? "landscape" : "square");
+  return `Reference image: ${w}×${h} px, ${ori}, aspect ratio ${best[0]}.`;
+}
+function shotLine(n){
+  n = parseInt(n) || 1;
+  if (curMode() === "onetake"){
+    const ph = Math.min(3, Math.max(2, n === 1 ? 3 : n));
+    return `One continuous take: no hard cuts, exactly ONE [Shot 1]. Use exactly ${ph} phases inside that single shot.`;
+  }
+  return n === 1
+    ? "One continuous take: no hard cuts, the whole clip is a single shot."
+    : `Exactly ${n} shots.`;
+}
+/* what the validator should expect for [Shot N] count, given the card's setting and the mode */
+function wantShotsFor(n){ return curMode() === "onetake" ? 1 : (parseInt(n) || 1); }
+function userNote(it){
+  const n = (it.note||"").trim();
+  let t = $("#dur").value + "\n" + shotLine(it.shots || 1);
+  const fl = frameLine(it.w, it.h);
+  if (fl) t += "\n" + fl;
+  return n ? t + "\n\n" + n : t;
+}
+const TR_SYS = "你是專業的影視腳本翻譯。把使用者給的 MiniMax H3 影片 prompt 逐句翻成繁體中文（台灣用語）。"
+  + "保留 [Shot N] 標記與 MM:SS.mmm 時間戳的位置，[Shot N] 譯為 [鏡頭 N]。"
+  + "攝影機句子一律譯為「攝影機以〈小/中/大〉幅度、〈慢速/中速/快速〉〈運鏡〉。」的形式。"
+  + "對白標籤 (S1) <d>[語言] …</d> 原樣保留，只翻譯裡面的台詞。只輸出譯文，不要加任何說明。";
+
+function retryCfg(){
+  return { max: Math.max(0, parseInt($("#retry").value) || 0),
+           lvl: $("#retrylvl").value || "ok" };
+}
+function isClean(v, lvl){
+  return lvl === "noerr" ? !v.E.length : (!v.E.length && !v.W.length);
+}
+async function genOnce(imgUrl, utext, target, wantShots){
+  const j = await chat([
+    {role:"system", content: activeText() + loraSystemSuffix()},
+    {role:"user", content:[{type:"image_url",image_url:{url:imgUrl}},
+                           {type:"text",text:utext}]}
+  ], {max:4000});
+  const raw = j.choices[0].message.content || "";
+  const content = trim(raw);
+  const v = validate(content, target, wantShots);
+  return { j, raw, content, v, score: v.E.length*100 + v.W.length };
+}
+async function genWithRetry(imgUrl, utext, target, wantShots, onStep){
+  const cfg = retryCfg();
+  let best = null, attempts = 0;
+  for (let a = 0; a <= cfg.max; a++){
+    attempts = a + 1;
+    if (a > 0 && onStep) onStep(`重試 ${a}/${cfg.max}`);
+    if (best && (abort || hregenAbort)) break;
+    const c = await genOnce(imgUrl, utext, target, wantShots);
+    if (!best || c.score < best.score) best = c;
+    if (isClean(c.v, cfg.lvl)) { best = c; break; }
+    if (abort || hregenAbort) break;
+  }
+  if (!best) throw new Error("已停止");
+  best.attempts = attempts;
+  return best;
+}
+async function runOne(it){
+  const enc = await encode(it.file);
+  it.thumb = enc.thumb; it.full = enc.b64; it.w = enc.w; it.h = enc.h;
+  if (it.preview){ URL.revokeObjectURL(it.preview); it.preview = null; }
+  const t0 = performance.now();
+  LORA_NOTE = (it.note || "").trim();
+  let best;
+  try {
+    best = await genWithRetry(enc.b64, userNote(it),
+      parseFloat($("#dur").value) || 8, wantShotsFor(it.shots || 1),
+      t => { it.state2 = t; render(); });
+  } catch(e){ LORA_NOTE = ""; throw e; }
+  it.elapsed = ((performance.now()-t0)/1000).toFixed(1);
+  it.usage = best.j.usage||{}; it.timings = best.j.timings||{};
+  it.raw = best.raw;
+  { const la = loraApply(best.content); it.content = la.content; it.lora = la.lora; }
+  it.ctx = genContext();          // snapshot while LORA_NOTE is still set (note-forced keys included)
+  LORA_NOTE = "";
+  it.v = best.v;
+  it.attempts = best.attempts;
+  it.state = it.v.E.length ? "fail" : (it.v.W.length ? "warn" : "ok");
+  it.state2 = null;
+  render();
+
+  if ($("#tr").value === "1"){
+    it.state2 = "翻譯中"; render();
+    try{
+      const t = await chat([
+        {role:"system", content: TR_SYS},
+        {role:"user", content: it.content}
+      ], {temp:0.3, topp:0.9, max:1800});
+      it.zh = (t.choices[0].message.content||"").trim();
+    }catch(e){ it.zh = "（翻譯失敗："+e.message+"）"; }
+    it.state2 = null;
+  }
+  render(); record(it);
+}
+
+/* ---- 狀態篩選 ---- */
+const STATES=[["ok","通過","f-ok"],["warn","警告","f-warn"],["fail","錯誤","f-fail"],
+              ["pending","待處理","f-pending"],["error","失敗","f-error"]];
+let FILTER = new Set(STATES.map(s=>s[0]));
+
+function updateFilterBar(){
+  if (!items.length){ $("#fbar").style.display="none"; return; }
+  $("#fbar").style.display="flex";
+  const cnt={}; items.forEach(i=>cnt[i.state]=(cnt[i.state]||0)+1);
+  $("#fchips").innerHTML = STATES.filter(([k])=>cnt[k]).map(([k,label,cls])=>
+    `<button class="fchip ${cls} ${FILTER.has(k)?"on":""}" onclick="toggleFilter('${k}')">
+      ${label}<span class="n">${cnt[k]}</span></button>`).join("");
+  applyFilter();
+}
+const visibleItems = () =>
+  items.filter(i => i.state === "running" || i.keep || FILTER.has(i.state));
+function applyFilter(){
+  document.querySelectorAll("#out .card").forEach(c=>{
+    const on = c.dataset.st === "running" || c.dataset.keep === "1" || FILTER.has(c.dataset.st);
+    c.classList.toggle("hide", !on);
+  });
+  const q = visibleItems().filter(i => i.state !== "running");
+  $("#frerun").textContent = `重跑顯示中的 ${q.length} 張`;
+  $("#frerun").disabled = !q.length || running;
+}
+function clearKeep(){
+  items.forEach(i => i.keep = false);
+  document.querySelectorAll("#out .card").forEach(c => c.dataset.keep = "0");
+}
+window.toggleFilter = k => {
+  clearKeep();
+  FILTER.has(k) ? FILTER.delete(k) : FILTER.add(k);
+  // 篩到一張都不剩沒有意義，直接回到全選
+  const present = new Set(items.map(i => i.state));
+  if (![...present].some(st => FILTER.has(st))) FILTER = new Set(STATES.map(s => s[0]));
+  updateFilterBar();
+};
+$("#fall").onclick = () => { clearKeep(); FILTER = new Set(STATES.map(s=>s[0])); updateFilterBar(); };
+
+/* ---- 執行佇列 ---- */
+let running=false;
+function setRunning(on){
+  running=on;
+  $("#run").disabled=on; $("#stop").disabled=!on;
+  document.querySelector('.nav[data-view=run]').classList.toggle("busy", on);
+  if (!on) $("#expj").disabled=$("#expt").disabled=false;
+  applyFilter();
+}
+async function runQueue(list, label){
+  if (!list.length || running) return;
+  abort=false; setRunning(true);
+  let n=0;
+  for (const it of list){
+    if (abort) break;
+    it.state="running"; it.keep=true; it.zh=null; render();
+    $("#prog").textContent = `${label} ${++n}/${list.length} — ${it.name}`;
+    $("#navRun").textContent = `${n}/${list.length}`;
+    try{ await runOne(it); }
+    catch(e){ it.state="error"; it.err=e.message; render(); }
+  }
+  setRunning(false);
+  $("#prog").textContent = abort ? `已停止（完成 ${n} 張）` : `${label}完成，共 ${n} 張`;
+  $("#navRun").textContent = items.length || "";
+  convergence(); updateFilterBar();
+}
+$("#run").onclick = () => runQueue(items.filter(i=>i.state==="pending"||i.state==="error"), "處理中");
+$("#frerun").onclick = () => runQueue(visibleItems().filter(i => i.state !== "running"), "重跑");
+$("#stop").onclick=()=>{abort=true;$("#prog").textContent="停止中…"};
+$("#clear").onclick=()=>{items.forEach(i=>i.preview&&URL.revokeObjectURL(i.preview));
+  items=[];render();$("#conv").style.display="none";
+  $("#prog").textContent="";$("#run").disabled=true;$("#navRun").textContent="";
+  $("#fbar").style.display="none"};
+
+/* ================= 收斂統計 ================= */
+function convergence(){
+  const done = items.filter(i=>i.v);
+  if (done.length < 3){ $("#conv").style.display="none"; return; }
+  const cnt={}; done.forEach(i=>i.v.moves.forEach(m=>cnt[m]=(cnt[m]||0)+1));
+  const tot=Object.values(cnt).reduce((a,b)=>a+b,0);
+  const rows=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([m,k])=>{
+    const p=k/tot*100;
+    return `<tr><td style="font-family:ui-monospace,Consolas,monospace">${m}</td>
+      <td style="width:34%"><div class="bar" style="width:${p*2.4}%;${p>50?'background:var(--warn)':''}"></div></td>
+      <td class="meta" style="display:table-cell">${k}　${p.toFixed(1)}%</td>
+      <td style="color:var(--warn);font-size:12.5px">${p>50?"佔比過高，運鏡在收斂":""}</td></tr>`;
+  }).join("");
+  $("#conv").style.display="block";
+  $("#conv").innerHTML = `<h3>整體</h3>
+    <p class="ph">${done.length} 張中 <b>${done.filter(i=>i.state==="ok").length}</b> 張完全通過、
+      ${done.filter(i=>i.state==="warn").length} 張有警告、${done.filter(i=>i.state==="fail").length} 張有錯誤。</p>
+    <p class="lab">運鏡分佈</p>
+    <p class="hint" style="margin:0 0 8px">不同的圖本該產生不同的運鏡。若某一種超過 50%，代表模型在套習慣而不是看畫面。</p>
+    <table>${rows}</table>`;
+}
+
+/* ================= 渲染 ================= */
+function hl(t){
+  t = esc(t).replace(/\n/g,"<br>");
+  t = t.replace(/\[(Shot \d+|鏡頭 \d+)\]/g,'<b class="shot">[$1]</b>');
+  t = t.replace(/(The camera [a-z ]+ with (?:small|medium|large) amplitude at (?:slow|moderate|fast) speed\.)/g,
+    '<span class="cam">$1</span>');
+  t = t.replace(/(攝影機以[^。]*。)/g,'<span class="cam">$1</span>');
+  return t;
+}
+function field(c,a,b){
+  const i=c.indexOf(a); if(i<0) return "";
+  const j = b ? c.indexOf(b) : -1;
+  return c.slice(i+a.length, j>0 ? j : undefined).trim();
+}
+function bilingual(content, zh, note){
+  const d=field(content,"integrated_multimodal_description:","overall_soundscape:");
+  const s=field(content,"overall_soundscape:","non_diegetic_music:");
+  const m=field(content,"non_diegetic_music:",null);
+  return `<div class="cols">
+    <div class="col">
+      <p class="lab">integrated_multimodal_description</p><p>${hl(d)}</p>
+      <p class="lab">overall_soundscape</p><p>${hl(s)}</p>
+      <p class="lab">non_diegetic_music</p><p>${hl(m)}</p>
+    </div>
+    <div class="col zh"><p class="lab">中文對照${note?" · "+note:""}</p>
+      <p>${zh ? hl(zh) : '<span class="hint">—</span>'}</p></div>
+  </div>`;
+}
+function render(){
+  const ae = document.activeElement;
+  const keep = (ae && ae.dataset && ae.dataset.note !== undefined)
+    ? {k: ae.dataset.note, a: ae.selectionStart, b: ae.selectionEnd} : null;
+  $("#out").innerHTML = items.map((it,k)=>{
+    const b={pending:["b-run","待處理"],running:["b-run","產生中…"],ok:["b-ok","通過"],
+             warn:["b-warn","警告"],fail:["b-fail","錯誤"],error:["b-fail","失敗"]}[it.state];
+    let inner="";
+    if (it.state==="error") inner=`<pre>${esc(it.err)}</pre>`;
+    else if (it.content){
+      const iss=[...it.v.E.map(e=>`<li class="e">${esc(e)}</li>`),
+                 ...it.v.W.map(w=>`<li class="w">${esc(w)}</li>`),
+                 ...((it.v.I||[]).map(x=>`<li class="i">${esc(x)}</li>`))].join("");
+      const chips = it.v.pairs.map((p,i)=>`<span class="chip">${esc(it.v.moves[i])} · ${p}</span>`).join("");
+      inner = `${iss?`<ul class="issues">${iss}</ul>`:""}<div class="chips">${chips}</div>
+        ${loraBadges(it.lora)}${bilingual(it.content, it.zh, it.state2)}
+        <details><summary>原始輸出</summary><pre>${esc(it.raw)}</pre></details>
+        <div class="row" style="margin-top:10px">
+          <button class="ghost mini" onclick="redo(${k})">重跑這張</button>
+          <button class="ghost mini" onclick="copyOne(${k})">複製 prompt</button>
+          <button class="ghost mini" onclick="comfyFromItem(${k}, this)">🎬 送 ComfyUI</button>
+          <span class="hint" data-cstat="${k}"></span></div>`;
+    }
+    return `<div class="card" data-st="${it.state}" data-keep="${it.keep?1:0}">
+      <div class="thumb">${it.thumb||it.preview?`<img src="${it.thumb||it.preview}">`:'<p class="ph">無預覽</p>'}
+        <div class="note-wrap"><label>${curMode()==="onetake"?"階段數":"鏡頭數"}</label>
+          <div class="seg sm">${(curMode()==="onetake"?[2,3]:[1,2,3,4]).map(n =>
+            `<button class="${(it.shots||(curMode()==="onetake"?3:1))===n?"on":""}" onclick="setShots(${k},${n})">${curMode()==="onetake"?n+"階段":(n===1?"一鏡":n+"鏡")}</button>`
+          ).join("")}</div></div>
+        <div class="note-wrap"><label>補充劇情（選填）</label>
+          <textarea class="note" data-note="${k}" rows="3" placeholder="例如：她正要去趕末班車"
+            oninput="setNote(${k}, this.value)">${esc(it.note||"")}</textarea></div>
+      </div>
+      <div><div class="hd"><span class="badge ${b[0]}">${b[1]}</span><span class="name">${esc(it.name)}</span>${it.state2?`<span class="meta" style="margin:0;color:var(--warn)">${esc(it.state2)}</span>`:""}</div>
+      ${it.elapsed?`<div class="meta"><span>${it.elapsed}s</span>
+        <span>${it.usage.completion_tokens||0} tokens</span>
+        <span>${(it.timings.predicted_per_second||0).toFixed(0)} t/s</span>
+        ${it.attempts>1?`<span>${it.attempts} 次嘗試</span>`:""}</div>`:""}
+      ${inner}</div></div>`;
+  }).join("");
+  if (keep){
+    const el = document.querySelector(`[data-note="${keep.k}"]`);
+    if (el){ el.focus(); try{ el.setSelectionRange(keep.a, keep.b); }catch(e){} }
+  }
+  updateFilterBar();
+}
+window.redo = async k => { const it=items[k]; it.state="running"; it.keep=true; it.zh=null; render();
+  try{ await runOne(it) }catch(e){ it.state="error"; it.err=e.message; render() } convergence(); };
+window.copyOne = k => navigator.clipboard.writeText(items[k].content);
+window.setNote = (k, v) => { if (items[k]) items[k].note = v; };
+window.setShots = (k, n) => { if (items[k]) { items[k].shots = n; render(); } };
+
+/* ================= 歷史紀錄 ================= */
+function urlToDataURL(url){
+  return fetch(url).then(r => {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.blob();
+  }).then(b => new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = rej;
+    fr.readAsDataURL(b);
+  }));
+}
+const API="/api/history";
+let hist=[];
+async function record(it){
+  if (!onServer) return;
+  try{
+    await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({image:it.name,dur:$("#dur").value,state:it.state,
+        elapsed_s:parseFloat(it.elapsed),usage:it.usage,
+        errors:it.v?it.v.E:[],warnings:it.v?it.v.W:[],
+        content:it.content,raw:it.raw,zh:it.zh||"",note:it.note||"",thumb:it.thumb,full:it.full||"",
+        attempts:it.attempts||1,shots:it.shots||1,
+        ...(() => { const c = it.ctx || genContext(); return {mode:c.mode, prompt_id:c.prompt_id, prompt_name:c.prompt_name,
+                     lora: c.lora ? {...c.lora, report:(it.lora||{}).report||null, issues:(it.lora||{}).issues||[]} : null}; })()})});
+    loadHist();
+    if ($("#navUploads")) fetch(UAPI).then(r=>r.json()).then(u=>{ uploads = u; $("#navUploads").textContent = u.length || ""; }).catch(()=>{});
+  }catch(e){}
+}
+async function loadHist(){
+  if (!onServer){
+    $("#hcount").textContent="以 file:// 開啟時無法保存紀錄，請用 start-h3-tester.bat 啟動";
+    $("#sfHist").textContent="紀錄未啟用"; return;
+  }
+  try{ hist = await (await fetch(API)).json(); renderHist(); }
+  catch(e){ $("#hcount").textContent="讀取紀錄失敗："+e.message; }
+}
+let hgroups = [];
+function renderHist(){
+  const rows = hVisible();
+  // 同一張圖的多次生成收合成一個群組（hist 已是新的在前）
+  const byImg = new Map();
+  for (const r of rows){
+    if (!byImg.has(r.image)) byImg.set(r.image, []);
+    byImg.get(r.image).push(r);
+  }
+  hgroups = [...byImg.entries()].map(([image, vs]) => ({image, vs}));
+  const totals = {};
+  hist.forEach(r => totals[r.image] = (totals[r.image] || 0) + 1);
+
+  $("#hcount").textContent = `${hgroups.length} 張圖 · ${rows.length} / ${hist.length} 筆`;
+  updateHBar();
+  $("#navHist").textContent = hist.length || "";
+  $("#sfHist").textContent = `紀錄 ${hist.length} 筆`;
+  $("#hgrid").innerHTML = hgroups.map((g, i) => {
+    const r = g.vs[0];                       // 最新一版代表這張卡
+    const d = r.nerr ? "s-fail" : (r.nwarn ? "s-warn" : "s-ok");
+    const total = totals[g.image] || g.vs.length;
+    return `<button class="hcell" onclick="openGroup(${i})" title="${esc(g.image)} · ${total} 個版本">
+      <span class="sdot ${d}"></span>
+      <span class="mtag ${hMode(r)==="onetake"?"ot":""}">${hMode(r)==="onetake"?"一鏡":"硬切"}</span>
+      ${total > 1 ? `<span class="vcount">${total} 版</span>` : ""}
+      <img src="/api/thumb/${r.id}.jpg" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="cap">${esc(g.image)}</div>
+      <div class="cap t">${esc(r.ts.slice(5,16))} · ${esc(r.dur)}</div></button>`;
+  }).join("") || '<span class="hint">還沒有紀錄</span>';
+}
+window.openGroup = i => {
+  const g = hgroups[i];
+  if (g) openRec(g.vs[0].id);
+};
+window.openRec = async id => {
+  const r = await (await fetch(API+"/"+id)).json();
+  const versions = hist.filter(x => x.image === r.image);   // 全部版本，新的在前
+  const vi = versions.findIndex(v => v.id === id);
+  const iss=[...(r.errors||[]).map(e=>`<li class="e">${esc(e)}</li>`),
+             ...(r.warnings||[]).map(w=>`<li class="w">${esc(w)}</li>`)].join("");
+  $("#mtitle").textContent = r.image;
+  const stw = (r.errors||[]).length ? ["錯誤","var(--acc)"]
+            : (r.warnings||[]).length ? ["警告","var(--warn)"] : ["通過","var(--ok)"];
+  $("#mmeta").innerHTML = `第 ${vi+1} / ${versions.length} 版 · <b style="color:${stw[1]}">${stw[0]}</b>`
+    + ` · ${esc(r.ts)} · 目標 ${esc(r.dur)} · ${r.elapsed_s}s · ${(r.usage||{}).completion_tokens||0} tokens`
+    + (r.attempts > 1 ? ` · ${r.attempts} 次嘗試` : "");
+  const hasFull = (hist.find(x => x.id === id) || {}).full !== false;
+  const vbar = versions.length > 1 ? `<div class="vbar">` + versions.map((v, k) => {
+    const st = v.nerr ? ["s-fail","錯誤","t-fail"] : (v.nwarn ? ["s-warn","警告","t-warn"] : ["s-ok","通過","t-ok"]);
+    return `<button class="vtab ${k===vi?"on":""}" onclick="openRec('${v.id}')">
+      <span class="sdot ${st[0]}" style="position:static;box-shadow:none"></span>
+      ${esc(v.ts.slice(5,16))}<span class="vst ${st[2]}">${st[1]}</span></button>`;
+  }).join("") + `</div>` : "";
+  const imgSrc = hasFull ? `/api/full/${r.id}.jpg` : `/api/thumb/${r.id}.jpg`;
+  $("#mbody").innerHTML = `
+    ${vbar}
+    <div class="mtop">
+      <a href="${imgSrc}" target="_blank" rel="noopener" title="開啟原圖">
+        <img class="mimg" src="${imgSrc}"
+          onerror="this.onerror=null;this.src='/api/thumb/${r.id}.jpg'"></a>
+      <div class="panel" style="margin:0;padding:16px">
+        <div class="note-wrap" style="margin:0">
+          <label>補充劇情（選填，重跑時會一起送給模型）</label>
+          <textarea class="note" id="mnote" rows="3"
+            placeholder="例如：她正要去趕末班車">${esc(r.note || "")}</textarea>
+        </div>
+        ${ctxLabel({mode:hMode(r), prompt_name:r.prompt_name, lora:(r.lora===undefined?undefined:r.lora)})}
+        <div class="row" style="margin-top:12px">
+          <span class="flab">${hMode(r)==="onetake"?"階段數":"鏡頭數"}</span>
+          <div class="seg sm" id="msseg">${(hMode(r)==="onetake"?[2,3]:[1,2,3,4]).map(n =>
+            `<button data-n="${n}" class="${(r.shots||(hMode(r)==="onetake"?3:1))===n?"on":""}">${hMode(r)==="onetake"?n+"階段":(n===1?"一鏡":n+"鏡")}</button>`
+          ).join("")}</div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="mini" id="mrerun">重跑 Prompt</button>
+          <button class="mini" id="mcomfy" onclick="comfyFromRec('${r.id}', this)">🎬 送 ComfyUI 生成</button>
+        </div>
+        <p class="hint" style="margin-top:8px"><span id="mrstat">${hasFull
+          ? "重跑會用當時的原圖、分鏡模式、system prompt 與 LoRA 設定，結果另存為新版本；不會動到目前的設定。"
+          : "這筆紀錄沒有保存原圖（舊版本存的），只能從「上傳並處理」重新跑。"}</span>
+          <span id="mcstat"></span></p>
+      </div>
+    </div>
+    ${iss?`<ul class="issues">${iss}</ul>`:""}
+    ${loraBadges(r.lora)}${bilingual(r.content, r.zh, r.zh?"":"當時未開啟翻譯")}
+    <details><summary>原始輸出</summary><pre>${esc(r.raw)}</pre></details>`;
+  let mShots = r.shots || 1;
+  document.querySelectorAll("#msseg button").forEach(b => b.onclick = () => {
+    mShots = +b.dataset.n;
+    document.querySelectorAll("#msseg button").forEach(x =>
+      x.classList.toggle("on", +x.dataset.n === mShots));
+  });
+  $("#mrerun").disabled = !hasFull;
+  $("#mrerun").onclick = () => rerunRecord(r, mShots);
+  $("#mcopy").onclick=()=>navigator.clipboard.writeText(r.content);
+  $("#mdel").onclick=async()=>{
+    const q = versions.length > 1
+      ? `刪除這個版本（${r.ts}）？其他 ${versions.length-1} 個版本會保留。`
+      : "刪除這筆紀錄？這是這張圖僅剩的版本。";
+    if (!confirm(q)) return;
+    await fetch(API+"/"+id,{method:"DELETE"});
+    await loadHist();
+    const remain = hist.filter(x => x.image === r.image);
+    if (remain.length) openRec(remain[0].id);
+    else $("#modal").classList.remove("on");
+  };
+  $("#modal").classList.add("on");
+};
+
+/* 依 id 取回原圖重跑一次，結果另存為新的一筆，回傳新 id */
+async function regenerate(rec, note, shots, onStep){
+  shots = parseInt(shots) || 1;
+  const step = onStep || (() => {});
+  step("取回原圖…");
+  const full = await urlToDataURL("/api/full/" + rec.id + ".jpg");
+  const thumb = await urlToDataURL("/api/thumb/" + rec.id + ".jpg").catch(() => "");
+  const target = parseFloat($("#dur").value) || 8;
+  const dim = await new Promise(res => {
+    const im = new Image();
+    im.onload = () => res({w: im.naturalWidth, h: im.naturalHeight});
+    im.onerror = () => res({w: 0, h: 0});
+    im.src = full;
+  });
+  let utext = $("#dur").value + "\n" + shotLine(shots);
+  const fl = frameLine(dim.w, dim.h);
+  if (fl) utext += "\n" + fl;
+  if (note) utext += "\n\n" + note;
+
+  step("產生中…");
+  const t0 = performance.now();
+  LORA_NOTE = (note || "").trim();
+  let best;
+  try { best = await genWithRetry(full, utext, target, wantShotsFor(shots), step); }
+  catch(e){ LORA_NOTE = ""; throw e; }
+  const elapsed = ((performance.now()-t0)/1000).toFixed(1);
+  const j = best.j, raw = best.raw, v = best.v;
+  const la = loraApply(best.content); const content = la.content;
+  const ctxSnap = genContext();   // while LORA_NOTE is still set
+  LORA_NOTE = "";
+  const state = v.E.length ? "fail" : (v.W.length ? "warn" : "ok");
+
+  let zh = "";
+  if ($("#tr").value === "1"){
+    step("翻譯中…");
+    try{
+      const t = await chat([{role:"system", content: TR_SYS}, {role:"user", content}],
+                           {temp:0.3, topp:0.9, max:1800});
+      zh = (t.choices[0].message.content || "").trim();
+    }catch(e){ zh = "（翻譯失敗：" + e.message + "）"; }
+  }
+
+  step("保存中…");
+  const saved = await (await fetch(API, {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({image:rec.image, dur:$("#dur").value, state, elapsed_s:+elapsed,
+      usage:j.usage||{}, errors:v.E, warnings:v.W, content, raw, zh, note, thumb, full,
+      attempts:best.attempts, shots,
+      ...(() => { const c = ctxSnap; return {mode:c.mode, prompt_id:c.prompt_id, prompt_name:c.prompt_name,
+                   lora: c.lora ? {...c.lora, report:(la.lora||{}).report||null, issues:(la.lora||{}).issues||[]} : null}; })()})})).json();
+  return saved.id;
+}
+
+async function rerunRecord(r, shots){
+  const btn = $("#mrerun"), stat = $("#mrstat");
+  const note = ($("#mnote").value || "").trim();
+  btn.disabled = true;
+  try{
+    const ctx = {mode: hMode(r), prompt_id: r.prompt_id, lora: (r.lora === undefined ? undefined : r.lora)};
+    const id = await withContext(ctx, () => regenerate(r, note, shots || r.shots || 1, t => stat.textContent = t));
+    await loadHist();
+    openRec(id);
+  }catch(e){
+    stat.textContent = "重跑失敗：" + e.message;
+    btn.disabled = false;
+  }
+}
+
+/* ---- 歷史紀錄的狀態篩選與批次重生成 ---- */
+const HSTATES=[["ok","通過","f-ok"],["warn","警告","f-warn"],["fail","錯誤","f-fail"]];
+const HMODES=[["cuts","硬切分鏡","f-cuts"],["onetake","一鏡到底","f-onetake"]];
+let HFILTER = new Set(HSTATES.map(x=>x[0])), HMFILTER = new Set(HMODES.map(x=>x[0])), hbusy = false;
+const hState = r => r.nerr ? "fail" : (r.nwarn ? "warn" : "ok");
+const hMode = r => (r.mode === "onetake" ? "onetake" : "cuts");   // records from before this feature count as cuts
+const hVisible = () => {
+  const q = $("#hfilter").value.trim().toLowerCase();
+  return hist.filter(r => HFILTER.has(hState(r)) && HMFILTER.has(hMode(r)) && (!q || (r.image||"").toLowerCase().includes(q)));
+};
+window.toggleHMode = k => {
+  HMFILTER.has(k) ? HMFILTER.delete(k) : HMFILTER.add(k);
+  if (!HMFILTER.size) HMFILTER = new Set(HMODES.map(x=>x[0]));
+  renderHist();
+};
+function updateHBar(){
+  if (!hist.length){ $("#hfbar").style.display="none"; return; }
+  $("#hfbar").style.display="flex";
+  const cnt={}; hist.forEach(r => cnt[hState(r)] = (cnt[hState(r)]||0)+1);
+  const mcnt = {}; hist.forEach(r => mcnt[hMode(r)] = (mcnt[hMode(r)]||0)+1);
+  const modeChips = HMODES.filter(([k])=>mcnt[k]).map(([k,label,cls])=>
+    `<button class="fchip ${cls} ${HMFILTER.has(k)?"on":""}" onclick="toggleHMode('${k}')">${label} <span class="n">${mcnt[k]}</span></button>`).join("");
+  $("#hfchips").innerHTML = (modeChips ? modeChips + '<span class="fsep"></span>' : "") + HSTATES.filter(([k])=>cnt[k]).map(([k,label,cls])=>
+    `<button class="fchip ${cls} ${HFILTER.has(k)?"on":""}" onclick="toggleHFilter('${k}')">
+      ${label}<span class="n">${cnt[k]}</span></button>`).join("");
+  const q = hRegenTargets();
+  $("#hregen").textContent = `重新生成顯示中的 ${q.length} 張圖`;
+  $("#hregen").disabled = !q.length || hbusy;
+}
+window.toggleHFilter = k => {
+  HFILTER.has(k) ? HFILTER.delete(k) : HFILTER.add(k);
+  const present = new Set(hist.map(hState));
+  if (![...present].some(st => HFILTER.has(st))) HFILTER = new Set(HSTATES.map(x=>x[0]));
+  renderHist();
+};
+$("#hfall").onclick = () => { HFILTER = new Set(HSTATES.map(x=>x[0])); renderHist(); };
+/* 每張圖取最新一個「有原圖」的可見版本 */
+function hRegenTargets(){
+  const seen = new Set(), out = [];
+  for (const r of hVisible()){
+    if (seen.has(r.image)) continue;
+    seen.add(r.image);
+    if (r.full !== false) out.push(r);
+  }
+  return out;
+}
+$("#hregen").onclick = async () => {
+  const rows = hRegenTargets();
+  const skipped = new Set(hVisible().map(r=>r.image)).size - rows.length;
+  if (!rows.length || hbusy) return;
+  if (!confirm(`重新生成 ${rows.length} 張圖？每張用其最新版本的原圖與補充劇情，結果另存為新版本。`)) return;
+  hbusy = true; hregenAbort = false; updateHBar();
+  $("#hstop").style.display = "inline-block";
+  let n = 0, ok = 0;
+  for (const row of rows){
+    if (hregenAbort) break;
+    n++;
+    $("#hprog").textContent = `重新生成 ${n}/${rows.length} — ${row.image}`;
+    try{
+      const rec = await (await fetch(API + "/" + row.id)).json();
+      const ctx = {mode: hMode(rec), prompt_id: rec.prompt_id, lora: (rec.lora === undefined ? undefined : rec.lora)};
+      await withContext(ctx, () => regenerate(rec, rec.note || "", rec.shots || 1, t =>
+        $("#hprog").textContent = `重新生成 ${n}/${rows.length} — ${row.image}　${t}`));
+      ok++;
+    }catch(e){
+      $("#hprog").textContent = `${row.image} 失敗：${e.message}`;
+    }
+  }
+  hbusy = false;
+  $("#hstop").style.display = "none";
+  await loadHist();
+  $("#hprog").textContent = (hregenAbort ? "已停止，" : "") + `完成 ${ok}/${rows.length} 張`
+    + (skipped ? `（另有 ${skipped} 張沒有保存原圖，已略過）` : "");
+};
+let hregenAbort = false;
+$("#mclose").onclick=()=>$("#modal").classList.remove("on");
+$("#modal").onclick=e=>{ if(e.target.id==="modal") $("#modal").classList.remove("on") };
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modal").classList.remove("on") });
+$("#hstop").onclick = () => { hregenAbort = true; $("#hprog").textContent = "停止中…"; };
+$("#hrefresh").onclick=loadHist;
+$("#hfilter").oninput=renderHist;
+$("#hclear").onclick=async()=>{ if(!confirm("清除全部紀錄？此動作無法復原。"))return;
+  await fetch(API+"/clear",{method:"POST"}); loadHist(); };
+loadHist();
+renderPrompts();   // 先同步畫出內建，再去伺服器補其他組
+loadPrompts().then(() => { setMode(curMode()); loadLoras(); });
+
+/* ================= ComfyUI 整合 ================= */
+const CAPI = "/api/comfy";
+function comfyFields(content){
+  return { imd: field(content, "integrated_multimodal_description:", "overall_soundscape:"),
+           soundscape: field(content, "overall_soundscape:", "non_diegetic_music:"),
+           music: field(content, "non_diegetic_music:", null) };
+}
+async function comfySend(payload, statusEl, btn){
+  if (btn) btn.disabled = true;
+  const set = t => { if (statusEl && statusEl.isConnected) statusEl.textContent = t; };
+  set("送出中…");
+  try{
+    const r = await fetch(CAPI + "/run", {method:"POST",
+      headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || ("HTTP " + r.status));
+    set("已排入佇列");
+    comfyPoll(j.prompt_id, set, btn);
+  }catch(e){
+    set("失敗：" + e.message);
+    if (btn) btn.disabled = false;
+  }
+}
+async function comfyPoll(pid, set, btn){
+  for (let i = 0; i < 450; i++){                       // 最長約 30 分鐘
+    await new Promise(r => setTimeout(r, 4000));
+    let j;
+    try{ j = await (await fetch(CAPI + "/status/" + pid)).json(); }
+    catch(e){ continue; }
+    if (j.state === "queued") set(`排隊中（第 ${j.pos} 位）`);
+    else if (j.state === "running") set("生成中…");
+    else if (j.state === "done"){
+      const out = (j.outputs || []).find(x => x.endsWith(".mp4")) || "";
+      set("完成 ✓ " + out.split("/").pop());
+      if (btn) btn.disabled = false;
+      if ($("#navMedia")) loadMedia();
+      return;
+    }
+    else if (j.state === "error"){
+      set("ComfyUI 錯誤：" + (j.error || "見 ComfyUI 主控台"));
+      if (btn) btn.disabled = false;
+      return;
+    }
+  }
+  set("輪詢逾時——去媒體庫或 ComfyUI 查看結果");
+  if (btn) btn.disabled = false;
+}
+window.comfyFromRec = (id, btnEl) => {
+  const stat = document.querySelector("#mcstat");
+  fetch(API + "/" + id).then(r => r.json()).then(rec => {
+    comfySend({rec_id: id, ...comfyFields(rec.content)}, stat, btnEl);
+  });
+};
+window.comfyFromItem = (k, btnEl) => {
+  const it = items[k]; if (!it || !it.content) return;
+  const stat = document.querySelector(`[data-cstat="${k}"]`);
+  comfySend({image: it.full, ...comfyFields(it.content)}, stat, btnEl);
+};
+
+$("#ctpl").onclick = async () => {
+  $("#ctplstat").textContent = "更新中…";
+  try{
+    const j = await (await fetch(CAPI + "/refresh", {method:"POST"})).json();
+    $("#ctplstat").textContent = j.error
+      ? "失敗：" + j.error
+      : `已更新（${j.nodes} 節點，來源輸出 ${j.output || "?"}）`;
+  }catch(e){ $("#ctplstat").textContent = "失敗：" + e.message; }
+};
+
+/* ================= 媒體庫 ================= */
+const MAPI = "/api/media";
+let media = [], mdKind = "all", mdCur = -1;
+
+const fmtSize = b => b >= 1e9 ? (b/1e9).toFixed(2)+" GB"
+  : b >= 1e6 ? (b/1e6).toFixed(1)+" MB"
+  : b >= 1e3 ? (b/1e3).toFixed(0)+" KB" : b + " B";
+const fmtTime = t => { const d = new Date(t*1000);
+  const z = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`; };
+const mUrl = (f, dl) => MAPI + "/file/" + f.path.split("/").map(encodeURIComponent).join("/") + (dl ? "?dl=1" : "");
+
+async function loadMedia(){
+  if (!onServer){ $("#mdcount").textContent = "需要透過 start-h3-tester.bat 啟動的服務"; return; }
+  try{
+    const r = await fetch(MAPI);
+    const j = await r.json();
+    if (j.error){ media = []; $("#mdcount").textContent = j.error; renderMedia(); return; }
+    media = j.files || [];
+    $("#navMedia").textContent = j.total || "";
+    renderMedia();
+  }catch(e){ $("#mdcount").textContent = "讀取失敗：" + e.message; }
+}
+/* ================= 上傳媒體庫 ================= */
+const UAPI = "/api/uploads";
+let uploads = [], upSel = new Set();
+const uUrl = (u, thumb) => UAPI + "/" + u.id + (thumb ? ".thumb.jpg" : ".jpg");
+async function loadUploads(){
+  if (!onServer){ $("#upcount").textContent = "以 file:// 開啟時無法使用，請用 start-h3-tester.bat 啟動"; return; }
+  try{ uploads = await (await fetch(UAPI)).json(); }
+  catch(e){ $("#upcount").textContent = "讀取失敗：" + e.message; return; }
+  upSel = new Set([...upSel].filter(id => uploads.some(u => u.id === id)));
+  renderUploads();
+}
+function upVisible(){
+  const q = $("#upfilter").value.trim().toLowerCase();
+  return uploads.filter(u => !q || (u.name||"").toLowerCase().includes(q) || (u.names||[]).some(x => x.toLowerCase().includes(q)));
+}
+function renderUploads(){
+  const rows = upVisible();
+  $("#upcount").textContent = `${rows.length} / ${uploads.length} 張` + (upSel.size ? ` · 已選 ${upSel.size}` : "");
+  $("#navUploads").textContent = uploads.length || "";
+  $("#upimport").disabled = !upSel.size;
+  $("#updelsel").disabled = !upSel.size;
+  $("#upimport").textContent = upSel.size ? `匯入 ${upSel.size} 張到上傳並處理` : "匯入到上傳並處理";
+  $("#upgrid").innerHTML = rows.map(u => {
+    const i = uploads.indexOf(u);
+    const sel = upSel.has(u.id);
+    const dim = (u.w && u.h) ? `${u.w}×${u.h}` : "";
+    return `<div class="upcell ${sel?"sel":""}" data-id="${u.id}">
+      <img class="upprev" src="${uUrl(u,true)}" loading="lazy" onclick="openUpload(${i})" alt="">
+      <span class="upck" onclick="toggleUpSel('${u.id}')" title="選取">${sel?"✓":""}</span>
+      ${u.refs ? `<span class="uprefs" title="被 ${u.refs} 筆歷史紀錄使用">${u.refs} 筆</span>` : ""}
+      <div class="upcap" title="${esc(u.name||"")}">${esc(u.name||"(未命名)")}</div>
+      <div class="upcap t">${dim}${dim&&u.size?" · ":""}${u.size?fmtSize(u.size):""}${u.ts?" · "+esc(String(u.ts).slice(5,16)):""}</div>
+      <div class="uprow">
+        <button onclick="importUploads(['${u.id}'])">匯入</button>
+        <button class="dl" onclick="delUploads(['${u.id}'])">刪除</button>
+      </div></div>`;
+  }).join("") || '<span class="hint">還沒有上傳過的圖片</span>';
+}
+window.toggleUpSel = id => { upSel.has(id) ? upSel.delete(id) : upSel.add(id); renderUploads(); };
+$("#upselall").onclick = () => { upVisible().forEach(u => upSel.add(u.id)); renderUploads(); };
+$("#upselnone").onclick = () => { upSel.clear(); renderUploads(); };
+$("#uprefresh").onclick = loadUploads;
+$("#upfilter").addEventListener("input", renderUploads);
+$("#upimport").onclick = () => importUploads([...upSel]);
+$("#updelsel").onclick = () => delUploads([...upSel]);
+/* lightbox: reuse the media lightbox */
+let mlbUpload = null;   // which upload the lightbox is showing (null = a ComfyUI media file)
+window.openUpload = i => {
+  const u = uploads[i]; if (!u) return;
+  mlbUpload = u.id;
+  $("#mlbName").textContent = u.name || "(未命名)";
+  $("#mlbMeta").textContent = `${(u.w&&u.h)?u.w+"×"+u.h+" · ":""}${u.size?fmtSize(u.size)+" · ":""}被 ${u.refs||0} 筆歷史紀錄使用 · ${u.ts||""}`;
+  $("#mlbDl").href = uUrl(u); $("#mlbDl").setAttribute("download", u.name || (u.id + ".jpg"));
+  $("#mlbBody").innerHTML = `<img src="${uUrl(u)}">`;
+  $("#mlb").classList.add("on");
+};
+/* import: fetch the stored originals -> File objects -> the same add() path a drag-drop uses */
+window.importUploads = async ids => {
+  if (!ids.length) return;
+  const files = [];
+  for (const id of ids){
+    const u = uploads.find(x => x.id === id); if (!u) continue;
+    try{
+      const blob = await (await fetch(uUrl(u))).blob();
+      const name = u.name || (id.slice(0,8) + ".jpg");
+      files.push(new File([blob], name, {type: blob.type || "image/jpeg"}));
+    }catch(e){}
+  }
+  if (!files.length){ alert("沒有可匯入的圖片"); return; }
+  add(files);
+  upSel.clear(); renderUploads();
+  setView("run");
+};
+/* delete: 3-way dialog. Always shows the REAL history count fetched from the server. */
+function upDialog(ids, refs, names){
+  return new Promise(resolve => {
+    const d = $("#updlg");
+    $("#updlgTitle").textContent = `刪除 ${ids.length} 張上傳圖片`;
+    $("#updlgMeta").textContent = names.length ? names.slice(0,4).join("、") + (names.length>4?` 等 ${names.length} 張`:"") : "";
+    $("#updlgBody").innerHTML = refs
+      ? `這${ids.length>1?"些":"張"}圖片被 <b>${refs}</b> 筆歷史紀錄使用。要怎麼處理？`
+      : `這${ids.length>1?"些":"張"}圖片沒有任何歷史紀錄使用。`;
+    $("#updlgCascade").style.display = refs ? "" : "none";
+    $("#updlgCascade").textContent = `連同 ${refs} 筆歷史一起刪`;
+    $("#updlgUnlink").textContent = refs ? "只從庫移除（保留歷史）" : "從庫移除";
+    const done = v => { d.classList.remove("on"); cleanup(); resolve(v); };
+    const onU = () => done("unlink"), onC = () => done("cascade"), onX = () => done(null);
+    const onKey = e => { if (e.key === "Escape") onX(); };
+    const onBg = e => { if (e.target === d) onX(); };
+    function cleanup(){
+      $("#updlgUnlink").removeEventListener("click", onU); $("#updlgCascade").removeEventListener("click", onC);
+      $("#updlgCancel").removeEventListener("click", onX); document.removeEventListener("keydown", onKey); d.removeEventListener("click", onBg);
+    }
+    $("#updlgUnlink").addEventListener("click", onU); $("#updlgCascade").addEventListener("click", onC);
+    $("#updlgCancel").addEventListener("click", onX); document.addEventListener("keydown", onKey); d.addEventListener("click", onBg);
+    d.classList.add("on");
+  });
+}
+window.delUploads = async ids => {
+  if (!ids.length) return;
+  let refs = 0;
+  for (const id of ids){
+    try{ refs += (await (await fetch(UAPI + "/" + id + "/history")).json()).length; }catch(e){}
+  }
+  const names = ids.map(id => (uploads.find(x => x.id === id)||{}).name).filter(Boolean);
+  const choice = await upDialog(ids, refs, names);
+  if (!choice) return;
+  if (choice === "cascade" && !confirm(`最後確認：真的要刪除 ${refs} 筆歷史紀錄？無法復原。`)) return;
+  let done = 0, delH = 0;
+  for (const id of ids){
+    try{
+      const j = await (await fetch(UAPI + "/" + id + (choice === "cascade" ? "?cascade=1" : ""), {method:"DELETE"})).json();
+      if (j.ok){ done++; delH += (j.deleted_history||0); }
+    }catch(e){}
+  }
+  upSel.clear();
+  await loadUploads();
+  if (typeof loadHist === "function") loadHist();
+  $("#upcount").textContent += choice === "cascade" ? ` · 已刪 ${done} 張圖、${delH} 筆歷史` : ` · 已從庫移除 ${done} 張（歷史保留）`;
+};
+
+function renderMedia(){
+  const kinds = [...new Set(media.map(f => f.kind))];
+  const kindName = {video:"影片", image:"圖片", audio:"音訊"};
+  $("#mdkinds").innerHTML = kinds.length > 1
+    ? [["all","全部"], ...kinds.map(k => [k, kindName[k]||k])].map(([k,label]) =>
+        `<button class="fchip ${k===mdKind?"on":""}" onclick="setMdKind('${k}')">${label}` +
+        `<span class="n">${k==="all"?media.length:media.filter(f=>f.kind===k).length}</span></button>`).join("")
+    : "";
+  const q = $("#mdfilter").value.trim().toLowerCase();
+  const rows = media.filter(f => (mdKind==="all" || f.kind===mdKind)
+    && (!q || f.path.toLowerCase().includes(q)));
+  const totalSize = rows.reduce((a,f)=>a+f.size,0);
+  $("#mdcount").textContent = `${rows.length} / ${media.length} 個檔案 · ${fmtSize(totalSize)}`;
+  $("#mdgrid").innerHTML = rows.map(f => {
+    const i = media.indexOf(f);
+    const prev = f.kind === "image"
+      ? `<img src="${mUrl(f)}" loading="lazy">`
+      : f.kind === "video"
+        ? `<img data-vthumb="${esc(f.path)}" alt=""><span class="play"><span>▶</span></span>`
+        : `<span style="display:grid;place-items:center;aspect-ratio:16/10;color:var(--faint);font-size:32px">♪</span>`;
+    return `<div class="mdcell">
+      <button class="mdprev" onclick="openMedia(${i})">${prev}</button>
+      <div class="mdcap" title="${esc(f.path)}">${esc(f.name)}</div>
+      <div class="mdcap t">${fmtSize(f.size)} · ${fmtTime(f.mtime)}</div>
+      <div class="mdrow">
+        <a href="${mUrl(f, true)}">下載</a>
+        <button onclick="delMedia(${i})">刪除</button>
+      </div></div>`;
+  }).join("") || '<span class="hint">沒有符合的檔案</span>';
+  document.querySelectorAll("#mdgrid img[data-vthumb]").forEach(img => {
+    const f = media.find(x => x.path === img.dataset.vthumb);
+    if (f) queueThumb(f, img);
+  });
+}
+
+/* 影片縮圖：一次只開一條連線循序抓第一幀，避免佔滿瀏覽器對同源的連線池 */
+const thumbCache = new Map(), thumbPending = new Set();
+let thumbQueue = [], thumbBusy = false;
+function thumbTarget(path){
+  // 每次都重新找當下的 img——render 可能已經重畫過，抓舊參照會落空
+  return [...document.querySelectorAll("#mdgrid img[data-vthumb]")]
+    .find(el => el.dataset.vthumb === path) || null;
+}
+function queueThumb(f, imgEl){
+  if (thumbCache.has(f.path)){ imgEl.src = thumbCache.get(f.path); return; }
+  if (thumbPending.has(f.path)) return;
+  thumbPending.add(f.path);
+  thumbQueue.push(f);
+  pumpThumbs();
+}
+async function pumpThumbs(){
+  if (thumbBusy) return;
+  thumbBusy = true;
+  while (thumbQueue.length){
+    const f = thumbQueue.shift();
+    if (!thumbCache.has(f.path)){
+      try{
+        thumbCache.set(f.path, await makeVideoThumb(mUrl(f)));
+      }catch(e){ thumbPending.delete(f.path); continue; }
+    }
+    thumbPending.delete(f.path);
+    const el = thumbTarget(f.path);
+    if (el) el.src = thumbCache.get(f.path);
+  }
+  thumbBusy = false;
+}
+function makeVideoThumb(src){
+  return new Promise((res, rej) => {
+    const v = document.createElement("video");
+    v.muted = true; v.preload = "metadata";
+    const done = (fn, arg) => { v.onerror = v.onseeked = v.onloadedmetadata = null;
+      v.removeAttribute("src"); v.load(); clearTimeout(bail); fn(arg); };
+    const bail = setTimeout(() => done(rej, new Error("timeout")), 10000);
+    v.onloadedmetadata = () => {
+      try { v.currentTime = Math.min(Math.max(0.4, (v.duration || 1) * 0.1), Math.max(0.1, (v.duration || 1) - 0.05)); }
+      catch(e){}
+    };
+    v.onseeked = () => {
+      try{
+        const sc = 320 / Math.max(v.videoWidth || 1, v.videoHeight || 1);
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(v.videoWidth * sc));
+        c.height = Math.max(1, Math.round(v.videoHeight * sc));
+        c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+        done(res, c.toDataURL("image/jpeg", 0.72));
+      }catch(e){ done(rej, e); }
+    };
+    v.onerror = () => done(rej, new Error("video error"));
+    v.src = src;
+  });
+}
+window.setMdKind = k => { mdKind = k; renderMedia(); };
+$("#mdfilter").oninput = renderMedia;
+$("#mdrefresh").onclick = loadMedia;
+
+window.openMedia = i => {
+  const f = media[i]; if (!f) return;
+  mlbUpload = null; mdCur = i;
+  $("#mlbName").textContent = f.name;
+  $("#mlbMeta").textContent = `${f.path} · ${fmtSize(f.size)} · ${fmtTime(f.mtime)}`;
+  $("#mlbDl").href = mUrl(f, true);
+  $("#mlbBody").innerHTML = f.kind === "image"
+    ? `<img src="${mUrl(f)}">`
+    : f.kind === "video"
+      ? `<video src="${mUrl(f)}" controls autoplay></video>`
+      : `<audio src="${mUrl(f)}" controls autoplay style="width:100%"></audio>`;
+  $("#mlb").classList.add("on");
+};
+function closeMlb(){
+  mlbUpload = null;
+  $("#mlb").classList.remove("on");
+  $("#mlbBody").innerHTML = "";     // 停止播放
+  mdCur = -1;
+}
+window.delMedia = async i => {
+  const f = media[i]; if (!f) return;
+  if (!confirm(`刪除「${f.name}」？檔案會從磁碟移除，無法復原。`)) return;
+  const r = await fetch(mUrl(f), {method:"DELETE"});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok){ alert("刪除失敗：" + (j.error || r.status)); return; }
+  if (mdCur === i) closeMlb();
+  loadMedia();
+  fetch(UAPI).then(r=>r.json()).then(u=>{ uploads = u; $("#navUploads").textContent = u.length || ""; }).catch(()=>{});
+};
+$("#mlbClose").onclick = closeMlb;
+$("#mlbDel").onclick = () => { if (mlbUpload){ const id = mlbUpload; closeMlb(); delUploads([id]); } else if (mdCur >= 0) delMedia(mdCur); };
+$("#mlb").onclick = e => { if (e.target.id === "mlb") closeMlb(); };
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeMlb(); });
+if (onServer) fetch(MAPI).then(r=>r.json()).then(j=>{
+  if (j && j.total) $("#navMedia").textContent = j.total;
+}).catch(()=>{});
+
+/* ================= 匯出 ================= */
+function dl(name,text,mime){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([text],{type:mime}));
+  a.download=name; a.click();
+}
+$("#expj").onclick=()=>dl("h3-results.json",JSON.stringify(
+  items.filter(i=>i.content).map(i=>({image:i.name,elapsed_s:+i.elapsed,usage:i.usage,
+    note:i.note||"",content:i.content,zh:i.zh,errors:i.v.E,warnings:i.v.W})),null,1),"application/json");
+$("#expt").onclick=()=>dl("h3-results.txt",items.filter(i=>i.content)
+  .map(i=>`########## ${i.name}\n${i.content}\n`+(i.zh?`\n--- 中文 ---\n${i.zh}\n`:"")).join("\n"),"text/plain");
+
+setView(store.get(VKEY) || "run");
+</script>
