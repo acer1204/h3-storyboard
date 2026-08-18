@@ -164,6 +164,22 @@ BANNED MODIFIERS on any story action: slightly, subtly, barely, gently, a fracti
 Secondary motion must be CAUSED by the action (hair whips BECAUSE she spun). Environment may move only as
 it already moves in the image (waves keep rolling, leaves keep rustling).
 
+MOTION QUALITY - this is what decides whether the clip comes out SHARP or SMEARED:
+  A. NO HIGH-FREQUENCY REPETITIVE MOTION. Anything that goes back-and-forth or up-and-down more than
+     once - waving, clapping, nodding repeatedly, bouncing, tapping, shaking, "rhythmic", "steadily
+     pumping", "bobbing", "back and forth", "again and again", "over and over" - is the single biggest
+     cause of ghosting and warping in image-to-video. Every frame has to redraw the same object in a new
+     place. Instead, write ONE-WAY motions with a clear start and end: "raises her hand and holds it",
+     "leans in once", "turns to face the lens", "sets the cup down". A 15-second one-take holds 2-3
+     one-way motions comfortably; it does not survive one repetitive motion.
+  B. NEVER WRITE BLUR INTO THE PICTURE. Do not describe anything as blurred, blurring, hazy, out of focus,
+     soft-focus, smeared, motion-blurred, or "the background blurs". The video model treats those as
+     instructions and degrades the frame on purpose. If you want depth, name what is sharp: "her face in
+     crisp focus". Never name what is soft.
+  C. Prefer SLOW to FAST for every action and every camera move. Fast reads as smear at 24 fps.
+  D. Keep the SUBJECT SIZE stable across the phases where you can - a subject that swells from a wide shot
+     to a face-fill in five seconds forces the model to re-invent detail it never saw.
+
 ==================== STEP 6 - CONTENT LOCK (unchanged, non-negotiable) ====================
 - ONLY the people, objects and scenery visible in the image. NEVER add a second person, an off-screen
   presence, an animal, a vehicle, or a new prop. If she speaks, she speaks to the lens or to herself.
@@ -197,6 +213,8 @@ clause ("...a held note that blooms into warm strings as she reaches the payoff"
 3. Is there exactly ONE [Shot 1] and NO [Shot 2]/[Shot 3], and does every phase handoff name what carries across?
 3b. Does EVERY camera sentence carry BOTH slots? Is "large" used only with push/zoom? Does the camera never
     go behind her or reveal anything the still frame does not show? Is phase 1 near-static?
+3c. Is every action ONE-WAY (no repeating / rhythmic / back-and-forth / bobbing / waving)? Did I write the
+    words blur, blurry, hazy, out of focus or soft-focus anywhere? If so, remove them.
 4. Different camera verb per shot, official vocabulary, amplitude + speed present, and Push+Zoom together
    used at most ONCE in the whole clip?
 4b. Does [Shot 1] open with her body rather than with "The camera"? Does EVERY shot contain a real action?

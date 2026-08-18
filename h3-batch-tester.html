@@ -1174,6 +1174,11 @@ function validate(c, target, wantShots){
     if (pz.length>1) E.push("push/zoom 出現超過一次");
     else if (pz.length===1 && pz[0]!==fams.length-1) I.push("push/zoom 不在最後一個階段（建議留給收尾）");
     if (/(?<![A-Za-z])cut(?:s|ting)? to(?![A-Za-z])|hard cut|(?<![A-Za-z])jumps? to(?![A-Za-z])/i.test(body)) E.push("一鏡到底不可出現 cut to / hard cut");
+    /* motion quality: repetitive / oscillating motion smears in I2V; blur words are executed literally */
+    const rep_m = body.match(/\b(?:rhythmic(?:ally)?|repeatedly|again and again|over and over|back and forth|up and down|bobbing|bobs|pumping|pumps|bouncing|bounces|waving|waves (?:her|his|a) (?:hand|arm)|clapping|claps|nodding repeatedly|tapping|taps|shaking|shakes (?:her|his) (?:head|hips|body)|wiggling|wiggles|jiggling|jiggles|swaying back|rocking|rocks back)\b/gi);
+    if (rep_m) E.push("往復/高頻動作會糊（" + [...new Set(rep_m.map(x=>x.toLowerCase()))].slice(0,3).join(", ") + "）— 改成單向動作");
+    const blur_m = body.match(/\b(?:blur(?:red|ring|ry|s)?|hazy|haze|out of focus|soft[- ]focus|smear(?:ed|ing|s)?|motion[- ]blur|bokeh)\b/gi);
+    if (blur_m) E.push("描述裡出現模糊詞彙，H3 會照做（" + [...new Set(blur_m.map(x=>x.toLowerCase()))].slice(0,3).join(", ") + "）— 刪掉，或改寫成「in crisp focus」");
     if (!/No additional people/i.test(c)) E.push("缺少 No additional people 子句");
     if (!/Preserve/.test(c)) W.push("缺少 Preserve 子句");
     else if (/Preserve[^.]*(?:each named specifically|the key scenery|her hair, outfit and)/i.test(c))
