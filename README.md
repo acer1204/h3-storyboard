@@ -20,7 +20,9 @@
 | 畫面 | 2–3 個階段首尾相接、鏡頭連續換視角 | 每個鏡頭獨立重開 |
 | 人物一致性 | 高（首幀錨點不中斷） | 每次切換都有漂移風險 |
 
-在 H3 裡 `[Shot N]` 就是「硬切」——這正是多鏡頭時內容不連貫、人物跑掉的原因。一鏡到底模式用三個階段焊接（每段結束狀態 = 下段開始狀態），每階段一句運鏡、動詞不重複、push/zoom 只留給收尾。驗證器依模式套不同規則，不合格自動重試。
+在 H3 裡 `[Shot N]` 就是「硬切」——這正是多鏡頭時內容不連貫、人物跑掉的原因。一鏡到底模式用三個階段焊接（每段結束狀態 = 下段開始狀態），每階段一句運鏡、push/zoom 只留給收尾。驗證器依模式套不同規則，不合格自動重試。
+
+兩組內建 System Prompt 與驗證器都對齊 MiniMax 官方《Video Prompt Writing Guide》：官方 20 種運鏡用語、`small|large` / `slow|fast`（中間值省略）、`(S1) says: <d>[語言] …</d>` 對白語法、風格宣告 + `<Picture 1>` 錨定、音樂不寫抽象情緒詞。對齊行（`For the target video, at 0.00 seconds…`）預設不寫，由 Director 節點自動注入。
 
 ![settings](docs/img/04-settings-mode.png)
 
@@ -53,6 +55,14 @@
 - **ComfyUI 媒體庫**：直接瀏覽 ComfyUI 的 output 資料夾，影片可預覽、下載、刪除。
 
 ![uploads](docs/img/06-uploads.png)
+
+### ✅ 驗證器：錯誤 / 警告 / 提示
+
+- **錯誤（自動重試）**：官方格式違規（三欄位缺漏或順序、`[Shot N]` 編號與時間戳、`[Shot 1]` 帶時間戳、對齊行寫錯、對白缺 `(S1)`、旁白缺唇句），以及三種會讓 I2V 崩壞的內容：鏡頭繞到人物背後、往復/高頻動作（bobbing、up and down…）、模糊詞彙（blur、haze…）。
+- **警告（目標「完全通過」時才重試）**：`medium` / `moderate` 沒省略、`large amplitude` 配非 push/zoom 運鏡、音樂抽象情緒詞、缺風格宣告、缺人數鎖定句等。
+- **提示（只顯示）**：無對齊行（Director 會補）。
+
+模型偶爾漏寫 `[Shot 1]` 標記，會在驗證前自動補回，不算錯誤。
 
 ### 其他
 
@@ -167,8 +177,9 @@ overall_soundscape: ...
 non_diegetic_music: ...
 ```
 
-- 對齊行（`For the target video, at 0.00 seconds…`）依你選的 System Prompt 決定要不要由模型自己寫
-- 一鏡到底：只有一個 `[Shot 1]`，每階段一句 `The camera <動詞> with small|large amplitude at slow|fast speed.`
+- 對齊行（`For the target video, at 0.00 seconds…`）預設不寫（Director 節點會注入）；要模型自己寫就在補充劇情加一句 `full prompt`
+- 一鏡到底：只有一個 `[Shot 1]`，每階段一句 `The camera <官方運鏡> with small|large amplitude at slow|fast speed.`
+- 硬切：`[Shot 2] At 00:04.000, the camera cuts to …`，每鏡一句運鏡，`large amplitude` 只配 push in / zoom in
 - LoRA：MAIN 在最前面，SUB key 緊鄰對應動作
 
 ### 3. 系統設定
@@ -203,7 +214,8 @@ non_diegetic_music: ...
 h3-server.py                    伺服器（歷史 / 上傳庫 / LoRA / Prompt / ComfyUI 橋接 / 媒體庫）
 h3-batch-tester.html            前端（單一檔案）
 h3-lora.js                      LoRA 觸發詞引擎（佔位符解析、MAIN 置頂、語意補入、中文代號）
-SYSTEM_PROMPT_ONETAKE_v13_web.txt   一鏡到底內建 System Prompt
+SYSTEM_PROMPT_ONETAKE_v14_web.txt   一鏡到底內建 System Prompt（官方規範對齊）
+SYSTEM_PROMPT_CUTS_v7_web.txt       硬切分鏡內建 System Prompt（官方規範對齊）
 comfy-template.json             ComfyUI 送出模板（範例，會被「更新模板」覆蓋）
 config.example.json             設定範例 → 複製成 config.json
 start-h3-tester.bat             Windows 啟動器

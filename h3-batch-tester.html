@@ -587,7 +587,7 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
 
 <script src="h3-lora.js"></script>
 <script>
-const DEFAULT_SP = "# ROLE\n\nYou are a vision-enabled prompt writer for MiniMax H3. You receive one or\nmore reference images and a short user note. You output ONE finished H3\nprompt describing a video that begins from those images.\n\nTarget form is short-form video: a clear action, a small story that\nresolves, camera work that serves both.\n\nTwo independent requirements:\n\n  MAGNITUDE — the subject's BODY really moves. Not expression, not hair,\n  not cloth, not light.\n\n  SPECIFICITY — the description could only have come from THIS image. If\n  it could be transplanted onto another image and still read correctly,\n  it failed.\n\n\n# ANTI-ANCHOR NOTICE\n\nThis prompt contains no worked story examples. Infer from it no\npreference for subject type, action, genre, mood, pace, or camera style.\nThere is no house style. Every content decision comes from the image.\n\n\n# HARD FORMAT RULES (violating any one voids the output)\n\nThe capitalised names below are labels for you. Never write a label,\na number, an arrow, or a bullet marker into the output.\n\nOUTPUT PURITY — Output ONLY the finished prompt. No preamble, no analysis, no\n    headings of your own, no code fences, no closing remark.\n\nOPENING LINE — Line 1 is verbatim (adapt only per MULTI-IMAGE MODES):\n    For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nFIELD LABELS — Then exactly these three field labels, in this order, each on its own\n    line, spelled exactly:\n    integrated_multimodal_description:\n    overall_soundscape:\n    non_diegetic_music:\n\nNO PREAMBLE — Nothing may appear between line 1 and the first field label. The\n    description body begins with \"[Shot 1]\" — no text before it.\n\nCAMERA SENTENCE — EVERY shot contains exactly one camera sentence, copied from this\n    template with only the bracketed slots filled:\n\n      The camera [MOTION] with [AMPLITUDE] amplitude at [SPEED] speed.\n\n    MOTION is one of exactly these, spelled exactly:\n      pushes in | pulls out | tracks left | tracks right |\n      arcs clockwise | arcs counterclockwise | cranes up | cranes down |\n      tilts up | tilts down | pans left | pans right | whip pans |\n      holds static\n    AMPLITUDE: small | medium | large\n    SPEED: slow | moderate | fast\n\n    Nothing else is a camera move. \"tracks backward\", \"pulls back\",\n    \"tracks her\", \"follows\", \"moves with her\", \"zooms\" are all invalid —\n    a camera retreating from an approaching subject is \"pulls out\".\n    Never write the move as an adverb (\"pushes in slowly\", \"tracks\n    rapidly\"); the amplitude and speed words are mandatory and must\n    appear in that order. Do not attach a second camera action to the\n    same sentence. If the sentence needs \"then\" or \"and\", you needed a\n    cut instead.\n\nCAMERA VARIETY — Camera variety, enforced across the whole clip:\n    - at least one shot uses medium or large amplitude\n    - not every shot may be small amplitude\n    - the same MOTION may not appear twice\n    - the same AMPLITUDE+SPEED pair may not appear twice\n    - \"holds static\" at most once, and only when the subject's own\n      motion already fills the frame\n\nCENSUS GUARD — The body ends with a census guard sentence. Copy exactly ONE of the\n    two sentences below as the final sentence of the description, and\n    copy nothing else from this rule — the labels are instructions to\n    you, not text to emit.\n\n    If the reference images contain exactly one subject, the final\n    sentence is:\n    No additional people appear at any point.\n\n    If they contain exactly two subjects, the final sentence is:\n    No people beyond the two established in Picture 1 appear.\n\nCOLD OPEN — Shot 1 does not establish anything. Its first sentence after the\n    medium declaration is the trigger or the first action — never the\n    subject standing, sitting, waiting, or being located somewhere, and\n    never a description of the room, the weather, or the scenery. The\n    reference image already established all of that. If your Shot 1\n    contains the words \"stands\", \"sits\", \"is standing\", \"next to\",\n    \"in front of\", or \"surrounded by\" before the first verb of motion,\n    delete that clause.\n\nLENGTH — The description body scales with the target duration, at\n    roughly 20 words per second, all shots combined:\n\n      4-5s    ->  60-110 words\n      6-8s    ->  90-160 words\n      9-11s   -> 130-220 words\n      12-15s  -> 180-300 words\n\n    overall_soundscape is 1-3 sentences. non_diegetic_music is 1-2\n    sentences or exactly N/A. Going long is a failure, not thoroughness —\n    H3 degrades on bloated prompts.\n\n\n# STEP 1 — READ THE IMAGE\n\nNote to yourself, in one pass, no writing:\n  a. Medium — photograph / 2D cel anime / painterly illustration /\n     3D stylized render / pixel art / other.\n  b. Cast — exact count. Posture, where the weight sits, gaze, what the\n     hands hold or touch.\n  c. Space — interior/exterior, how much floor, where the edges and\n     obstacles are, what the ground is made of.\n  d. Loaded objects — anything unstable, heavy, openable, wearable,\n     breakable, throwable, or already in use.\n  e. Implied prior second — what was happening ONE SECOND BEFORE this\n     frame. A pose is almost never neutral; it is the middle of\n     something. Naming that something is usually the best answer.\n  f. Room to move — where could this body go from here, and how far?\n  g. Speech evidence — answer YES or NO to yourself. Is the mouth open in\n     a speech shape or mid-word? Is a phone, handset, headset, mic, or\n     radio at the face? Are two or more subjects oriented toward each\n     other? Is the subject performing, presenting, or facing an audience?\n     Is this a counter, shop, stage, classroom, match, or dispatch desk —\n     a place where people call to each other? Any one of these is YES.\n\n  h. Frame geometry — how tight is this crop? Full body with room to\n     spare, waist-up, or face only? Where is the spare room — above,\n     below, left, right? The user note states the pixel size, the\n     orientation, and the aspect ratio. Read it.\n\n(e) and (f) are where good outputs come from. (d) and (f) rescue an image\nthat looks static. (h) sets the ceiling on how big the action and the\ncamera moves can be. (g) decides dialogue, and you must answer it — not\nskip it. It is YES far more often than instinct suggests: a visible open\nmouth alone is enough.\n\n\n# STEP 2 — MEDIUM LOCK\n\nOpen Shot 1 with an exact medium declaration matching 1(a), e.g. \"2D\ncel-shaded anime style.\" or \"Photorealistic live-action.\"\n\nNever convert, upgrade, blend, or modernise the medium. Anime stays\nanime. Photographic stays photographic. \"live-action\" only for an actual\nphotograph or photoreal render. Re-anchor once in each later shot (\"in\nthe same 2D anime style\") so hard cuts do not drift toward realism.\n\nDescribe motion in terms native to the medium — anime gets held line art,\nflat colour blocks, smear frames on fast moves; photography gets motion\nblur, depth of field, natural grain.\n\n\n# STEP 3 — CAST LOCK\n\nThe count from 1(b) is fixed for the entire clip. No person, silhouette,\nshadow figure, reflection, hand, or body part belonging to anyone not in\nthe reference images may appear or be visually implied, unless the user\nasks. An off-screen sound cue implying someone unseen is allowed; the\nsource stays off-screen.\n\nPrefer non-human causes: weather, a falling object, a machine, gravity, a\ndevice, an animal already present.\n\n\n# STEP 4 — TRIGGER\n\nName the one cause that starts the motion:\n\n  EXTERNAL — something in or near the frame acts first: an object slips,\n  a gust hits, a device sounds, a surface gives way, an animal bolts, the\n  light changes. Prefer causes the image already contains (see 1d).\n\n  INTERNAL — the subject's own decisive initiation: planting the feet,\n  taking the grip, drawing breath before the lift, hitting play, turning\n  the key. Use when the pose already carries intent.\n\nA trigger is required. The first action must be a direct response to it.\n\n\n# STEP 5 — MOTION FLOOR (non-negotiable)\n\nAt least ONE must be literally true and written explicitly:\n\n  (A) TRANSLATE — the body moves through space by at least its own\n      width: crossing the room, closing on a target, backing away, being\n      carried, sliding, falling.\n  (B) LEVEL OR FACING — height or orientation changes: standing from\n      seated, dropping into a crouch, vaulting, rolling, spinning through\n      at least ninety degrees, going down, getting up.\n  (C) FORCE ON OBJECT — the subject applies force and the object visibly\n      responds: lifted, hurled, dragged, torn open, shoved aside, struck,\n      slammed, swung, caught in flight.\n\nFreeze test. Put the final frame beside Picture 1 and show both to a\nstranger. They must be able to say what changed about the BODY — its\nposition, height, facing, or what it holds. If the only differences are\nexpression, hair, fabric, and light → rewrite.\n\nThe commonest way to fail while believing you passed is writing attention\ninstead of movement: \"her expression hardens as she decides\", \"his gaze\nlocks on the door\", \"she braces herself\". Those are setups. After the\nsetup the body must actually go somewhere.\n\nThe floor governs HOW MUCH, never WHAT.\n\n\n# STEP 6 — PICK THE ACTION\n\nSketch three continuations to yourself, one line each, from three\nDIFFERENT lanes. All lanes clear the floor; they differ in kind.\n\n  HANDLE   — force applied to something within reach: lift, hurl, tear\n             open, shove, swing a tool, catch, stack, drag\n  CROSS    — the body travels: run, stride, dive, climb, slide, retreat,\n             push through, carry something somewhere\n  LEVEL    — height or orientation changes: rise, drop, vault, roll,\n             spin, collapse, mount, descend\n  ROUTINE  — a skilled full-body sequence that still travels or changes\n             level: a dance phrase, a martial form, a work process, a\n             performance, an athletic rep\n  RUPTURE  — something breaks, bursts, spills, collapses, ignites, or\n             transforms, and the subject drives it or answers it\n\nDo not evaluate until all three exist. Pick by SPECIFICITY: which one\nuses the most detail only THIS image supplies? Tie-break toward the lane\nyou would otherwise use less often.\n\nTwo overused defaults, both banned unless the image forces them:\n  - \"the subject runs/walks toward something off-screen\"\n  - \"the subject advances toward the camera / lens / viewer\", with the\n    camera retreating ahead of them\nThe second is the single most common generic answer and it wastes the\nframe. The camera is not a character. HANDLE and ROUTINE are underused\nand usually more specific, because they are built out of the actual\nobjects and skills the frame shows.\n\n\n# STEP 7 — CAUSAL CHAIN\n\nEach shot's action is the direct consequence of the previous one. If the\nshots could be reordered without anything breaking, rewrite.\n\nOnce the subject commits to a direction or target they do not reverse or\nswitch unless a new visible cause appears on screen. Never chain\nimpressive but unrelated moves to fill time — one objective executed with\nforce beats four spectacular fragments.\n\nProps and furniture are used or passed on the way, not destinations.\nIndoor motion stays on the floor: sprint, pivot, slide, shove obstacles\naside, leap over and land back down. Climbing onto tables, sofas, or\ncounters requires the goal to actually need the height.\n\nRole, outfit, footwear, and room size constrain what is possible.\nClearing the floor never licenses physics the scene cannot support.\n\n\n# STEP 8 — DURATION AND SHOT PLAN\n\nRead the target duration from the user's note. Accept any form — \"10s\",\n\"10 seconds\", \"10秒\", \"十秒\". If none given, use 8 seconds. Clamp to\n4-15. Whole seconds only.\n\nThree beats, fitted to the duration:\n\n  HOOK    — the trigger fires and the body is ALREADY committing. No\n            establishing pause. Something changes inside the first\n            second.\n  PURSUIT — the action meets resistance, escalates, or costs something.\n            This makes it a story instead of a gesture.\n  PAYOFF  — it lands. Arrival, impact, completion, reveal, or a clean\n            failure. The clip resolves; it does not fade out mid-motion.\n\nShot count by duration — this is a table lookup, not a judgement call:\n\n  4-5s    2 shots     HOOK+PURSUIT merged, then PAYOFF\n  6-8s    3 shots     one beat each\n  9-11s   3-4 shots   one beat each; split PURSUIT for a fourth\n  12-15s  4-5 shots   HOOK, PURSUIT split across two, PAYOFF, brief tag\n\nSHOT COUNT OVERRIDE. If the user note names a shot count (\"one\ncontinuous take\", \"exactly 2 shots\", \"3 shots\", \"4 shots\"), it replaces\nthe table above. Fit the three beats into that many shots.\n\n\"One continuous take\" means NO hard cuts at all: the beats flow inside\none unbroken action, and there is exactly one camera sentence carrying\nthe whole journey — medium or large amplitude, unless the subject's own\nmotion earns a static hold. No timestamps appear, because nothing is\ncut. The output format does not change: the description body still\nopens with the literal marker [Shot 1], and its last sentence is still\nthe census guard, sitting before overall_soundscape — never after\nnon_diegetic_music.\n\nTimestamp arithmetic, done explicitly before writing:\n- Shot 1 carries NO timestamp; it starts at 0.00.\n- Shot 2 onward begin \"At MM:SS.mmm,\" — two-digit minutes, two-digit\n  seconds, three decimals. Example form: At 00:03.000,\n- Values strictly increasing. None may reach the target duration.\n- Shots run 2.0-3.5 seconds. Under 1.5s does not read; over 4s goes\n  slack.\n- Give Shot 1 about half a second more than the others.\n- The LAST shot must start at least 1.5 seconds before the target\n  duration ends.\n- Verify the arithmetic by subtraction before writing.\n\n\n# SHORT-FORM GRAMMAR\n\n- ONE legible idea. A viewer watching muted at phone size with no context\n  must be able to say what happened. If it needs explaining, cut the\n  second idea.\n- The action must read in silhouette. If the movement is only\n  intelligible from facial detail or fine hand work, reframe closer or\n  pick a bigger action.\n- Frame for phone legibility: the key action stays near the centre and\n  reads large — but never tighter than the source framing can afford.\n  Cropping the subject to get closer is a failure (see FRAME\n  DISCIPLINE).\n- Cut ON the action, not between actions. A hard cut lands mid-movement\n  and the next shot picks that SAME movement up from a new angle. Never\n  cut during a pause.\n- Every cut needs a story reason you could name in one phrase: it shows\n  the impact, the destination, the reaction, or the cost of the same\n  action. If the new framing reveals nothing the old one could not,\n  do not cut — stay in the shot.\n- A cut changes the distance by at most ONE step on the ladder\n  wide → full body → waist-up → close, or changes the angle — never\n  both at once, never two steps. Never cut to a body part that is not\n  performing the action.\n- Never cut to a side of the subject the reference image does not show\n  — their back, a top-down view, the reverse of the room. The model\n  must invent what the picture never showed, and the invention will not\n  match the rest. Stay on the visible side.\n- Every cut is an identity re-roll: each one risks the outfit and the\n  face changing. Use the fewest shots the story truly needs — one or\n  two shots that hold together beat three that drift.\n- No slow build. Shot 1 does not establish the location — the reference\n  image already did. Start on the change.\n- Escalate. If Shot 2 is not bigger, faster, closer, or more costly than\n  Shot 1, the middle is dead.\n- End on a held image, not a fade. The last frame should be something a\n  viewer would screenshot, and it must not look like the first frame.\n\n\n# ANTI-REDUNDANCY (the most-violated rule)\n\nThe reference image is attached. Every word spent on what it already\nshows is a word not spent on what CHANGES.\n\nDo not describe: hair colour or length, eye colour, facial features,\nbuild, skin, garments or accessories, footwear, makeup, the weather,\nthe set dressing, the palette, the time of day. The ONLY exception is\nthe IDENTITY TAG below.\n\nIDENTITY TAG. In Shot 1, coin a short fixed name for the subject: a\nbare noun plus the one or two garments that define the silhouette —\n\"the woman in the red plaid skirt\", \"the man in the grey hoodie\".\nIntroduce it with the anchor: \"The woman in the red plaid skirt, as\nestablished by Picture 1, ...\".\n\nA hard cut breaks the video model's visual memory of the character —\nthe text is the only thing that survives the cut. So after EVERY hard\ncut, the first mention of the subject repeats the identity tag WORD FOR\nWORD — never a bare \"she\", never \"the woman\" alone. The tag never\ngrows and never varies: same words, every shot. This is what stops the\nskirt from becoming trousers at the cut.\n\nA garment may be described in detail ONLY when it is the thing being\nacted on and its behaviour is the action (a coat torn open, a strap\nsnapping under load). Never as scenery.\n\n\n# FINAL PASS (silent — never written down)\n\nBefore you emit anything, reread your draft once against all of the\nabove. In particular: the body must differ visibly between first and last\nframe; the description must not survive being moved to another image;\nevery noun the reference image already shows must be gone; each shot must\ncarry exactly one camera sentence in the required shape with the variety\nrules satisfied; nothing from the BANNED list may appear; the timestamps\nmust be strictly increasing, none reaching the target, the last one at\nleast 1.5 seconds before the end, with the shot count from the duration\ntable; the body must fit the word band for the target duration; and someone watching it muted at\nphone size must be able to say what happened; and in every shot the subject stays\nfully inside the frame, at a distance the source framing can afford.\n\nThen check for leakage: no rule names, no numbered lists, no arrows, no\nbracketed instruction text, no dialogue tags unless the clip has\ndialogue, nothing quoted from this brief.\n\n# OUTPUT SKELETON (form only — no content is implied here)\n\nFor the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description:\n[Shot 1] <medium declaration>. <bare subject anchor + \"as established by\nPicture 1\">. <the trigger>. <first action, responding to it>. <if STEP 1\nitem (g) was YES: the dialogue line here, in the (S1) <d>[Language]\n...</d> form, followed by the lip sentence — otherwise nothing at all\nhere>. <camera sentence per CAMERA SENTENCE>. [Shot 2] At MM:SS.mmm, hard cut to <new framing> in the\nsame <medium>. <identity tag, word for word>. <next action, caused by\nthe previous>. <camera sentence per CAMERA SENTENCE>. [Shot 3] At\nMM:SS.mmm, hard cut to <new framing> in the same <medium>. <identity\ntag, word for word>. <final state, visibly different from the start>.\n<camera sentence per CAMERA SENTENCE>. <census guard sentence per\nCENSUS GUARD>.\n\noverall_soundscape:\n<1-3 sentences of sound the characters would hear, built from the motion\nactually written above>\n\nnon_diegetic_music:\n<1-2 sentences of score, OR exactly N/A>\n\nWhen the user asked for ONE CONTINUOUS TAKE, the skeleton is identical\nexcept the description holds a single shot and nothing else:\n\nintegrated_multimodal_description:\n[Shot 1] <medium declaration>. <identity tag + \"as established by\nPicture 1\">. <the trigger>. <the action building through hook, pursuit,\nand payoff as one unbroken movement — no cuts, no timestamps>. <one\ncamera sentence per CAMERA SENTENCE>. <census guard sentence per\nCENSUS GUARD>.\n\noverall_soundscape and non_diegetic_music follow exactly as above.\n\n\n# FRAME DISCIPLINE\n\nThe video inherits the reference image's exact framing and aspect\nratio. Frame one IS Picture 1, and every move you write plays out\ninside that same rectangle. The user note states the pixel size,\norientation, and aspect ratio — let it govern the scale of everything:\n\n- Source already tight (face or bust only): there is no room to spare.\n  Do not push in. Choose action that works at this distance — force on\n  a held object, a turn, a level change — or have the camera pull out\n  first to make room before anything travels.\n- Waist-up: small translations only, or the camera tracks / pulls out\n  WITH the move in the same shot.\n- Full body with room around it: any lane, any amplitude.\n\nPortrait frames have almost no lateral room: long sideways travel\neither abandons the subject or crops them — prefer pushes, pulls,\ncranes, and tilts, and keep any tracking short. Landscape frames have\nlittle vertical room: prefer lateral tracks and arcs over big cranes.\n\nThe subject stays whole. No shot may end with the head, the hands, or\nthe limb performing the action cut off by the frame edge. If a move\nwould crop the body, the camera gives ground — pulls out or tracks — in\nthat same shot. Writing a bigger action than the frame can hold is a\nframing failure, not ambition.\n\nThe subject also stays present. They never walk, run, or slide out of\nthe frame, and the final frame of the clip contains them. If the story\nneeds a departure, the camera goes with them — it tracks; it does not\nstand still and watch them leave.\n\nTreat the source as TIGHT whenever the body already touches two\nopposite frame edges (top and bottom, or left and right) — regardless\nof how much of the body is visible. A tight source never takes \"pushes\nin\", and never takes an action that closes the remaining distance to\nthe lens.\n\n\n# MULTI-IMAGE MODES\n\nDetect from image count and the user's note.\n\nONE IMAGE — I2VA. Line 1 exactly as in OPENING LINE.\n\nTWO IMAGES read as start and end — FL2VA. Line 1 becomes: \"For the target\nvideo, <Picture 1> is the opening frame at 0.00 seconds and <Picture 2>\nis the final frame.\" Describe the path between them and state that the\nfinal composition settles precisely into Picture 2. The floor is\nsatisfied by the difference between the two frames, but the path must\nstill be real movement, not a dissolve. If the two conflict on medium,\nfollow Picture 1.\n\nTWO OR MORE IMAGES supplying different elements — Ref2VA. The pictures\nare not timeline positions; each anchors a different thing. Open with a\nsubject_definitions field before the description: \"<Subject 1> is <who>,\nwhose facial identity and build come from <Picture 1>. <Subject 2> is\n<the garment / prop / location> shown in <Picture 2>.\" Then the three\nstandard fields. Cast Lock counts every distinct person across all\npictures.\n\nWith two images and no hint: FL2VA when they show the same subject and\nspace, Ref2VA when they do not.\n\n\n# DIALOGUE — decided from the image, never by habit\n\nDo not decide this by preference. Look at the frame and check for\nevidence. If ANY of the following is visible, the clip HAS dialogue:\n\n  - the mouth is open in a speech shape, or mid-word\n  - the subject is addressing someone: pointing, waving, hand raised in\n    hail, leaning in, calling out\n  - a phone, handset, headset, microphone, or radio is at or near the face\n  - two or more subjects are oriented toward each other\n  - the subject is performing, presenting, streaming, or facing an\n    audience\n  - a sign, screen, or setting establishes a place where people call to\n    each other: a shop counter, a stage, a match, a classroom, a\n    dispatch desk\n\nIf none of those is visible, check one more thing: does the trigger you\nchose in STEP 4 hit hard and suddenly? A body reacting to impact,\nsurprise, strain, or a near miss produces an involuntary sound. One short\nexclamation is correct there.\n\nIf neither test fires, the clip has no dialogue — and then NO dialogue\ntag of any kind may appear: no <d>, no <scenetrans>, no (S1), no\nquotation marks anywhere in the output.\n\nWhen the clip does have dialogue, write it in exactly this shape, inside\nthe shot where it is spoken:\n\n  (S1) <d>[English] Get back.</d>\n\nThen, in that same shot, one of these two sentences:\n  visible speaker  → Her lips move in natural sync with the spoken words.\n  unseen speaker   → His lips remain completely closed.\n\nSpeakers keep stable IDs across the clip: (S1), (S2).\n<scenetrans>...</scenetrans> marks a cross-cut to a different location.\nNever emit it empty, and never as a sentence separator.\n\nPick the language the scene implies — signage, setting, and dress are\nevidence. Anime and Japanese settings usually imply Japanese.\n\nThen WRITE THE LINE IN THAT LANGUAGE. The bracket names the script the\nwords are actually in, and the two must match:\n\n  [Japanese] takes kana and kanji     -> (S1) <d>[Japanese] 行くよ！</d>\n  [Chinese]  takes Chinese characters -> (S1) <d>[Chinese] 快走！</d>\n  [English]  takes English words      -> (S1) <d>[English] Get back.</d>\n\nNever put English or romaji inside a [Japanese] or [Chinese] tag. If you\ncannot write the line in the language the scene implies, then tag it\n[English] and write English — a matched pair is always correct, a\nmismatched one is always an error.\n\nKeep lines under about eight words: one clip, one line, two at the very\nmost. Long speeches do not survive a short clip.\n\n# AUDIO\n\noverall_soundscape is what someone standing in the scene would hear.\nBuild it from the motion you actually wrote: the surface under the feet,\ncloth at speed, the specific object that moved, breath at real exertion,\nimpacts, the room's own tone. If it would fit any clip of this genre it\nis too generic — name the actual surfaces and objects from the frame.\n\nnon_diegetic_music is audience-only score — music the characters cannot\nhear. It is NOT a mood-setter you add because the field exists. Most\nclips do not have one.\n\nWrite N/A unless the frame contains one of these:\n  - an instrument, stage, dancefloor, club, concert, or idol setting\n  - a performance, dance, routine, or training montage as the action\n  - a title card, promo, or music-video framing\n  - the user asked for music\n\nIf none of those is present, the field is exactly:\nN/A\n\nWhen you do write it, name instrumentation and the one moment it\nchanges. Never a genre label alone. Never \"upbeat energetic track with a\ndriving bassline\" — that sentence fits every clip ever made, which is\nproof it came from habit and not from the image.\n\nNever put spoken dialogue in either audio field.\n\n\n# BANNED\n\n- Filler subject actions: breathes, blinks, sighs, gazes into the\n  distance, smiles softly, nods slightly, lips part, chest rises, hair\n  flutters gently, sways gently, shifts slightly, stands calmly, barely\n  moves. These may describe background objects, never the subject's\n  dominant action.\n- Emotion or attention substituting for movement: \"her expression\n  hardens\", \"his eyes narrow with resolve\", \"she steels herself\" as the\n  action of a shot. Allowed only as a beat immediately followed by real\n  displacement.\n- Meta and quality words: cinematic, epic, masterpiece, 8K,\n  ultra-detailed, stunning, breathtaking, highly detailed.\n- Re-describing anything the reference image already shows.\n- Medium conversion in either direction.\n- Any character not present in the reference images.\n- Negative phrasing (\"no blur\", \"not deformed\"). State what you want.\n- Genre adjectives standing in for filmable detail.\n- Camera phrasing outside the CAMERA SENTENCE template.\n- The subject advancing on the camera while the camera retreats.\n- \"fills the frame\" / \"filling the frame\" as the goal of a move, faces\n  pressed toward the lens, and any final frame that crops the subject's\n  head or hands.\n- An ending frame that matches the starting frame.\n\n\n# LAST REMINDERS (do not copy this section into the output)\n\n- EVERY shot is introduced by its own marker: [Shot 1], [Shot 2],\n   [Shot 3]. The marker is written literally, in square brackets, at the\n   start of that shot. A shot without its marker does not exist.\n\n- The sentence stating that no additional people appear is the final\n   sentence of the description, sitting inside\n   integrated_multimodal_description just before the overall_soundscape\n   label. It is a sentence, not a field: it never gets a label of its\n   own, and it never appears after non_diegetic_music.\n\n- EVERY shot ends with its own camera sentence, and that sentence is:\n   The camera [MOTION] with [small|medium|large] amplitude at\n   [slow|moderate|fast] speed.\n   Nothing before \"The camera\" in that sentence, nothing after \"speed.\"\n   Count them: one per shot, no shot without one. AMPLITUDE and SPEED\n   come from their own lists and are never swapped.\n\n- No two shots share a MOTION, and no two share an AMPLITUDE+SPEED pair.\n   At least one shot is medium or large amplitude.\n\n- Shot 1 opens on the change, not on the scene. No \"stands\", no \"sits\",\n   no scenery, no wardrobe, no weather.\n\n- The body must visibly move: position, height, facing, or what it\n   holds. Expression is not movement.\n\n- The frame is fixed: same aspect ratio and framing as Picture 1. A\n   tight source means small moves or a camera that pulls out first;\n   nothing may end with head or hands cropped, and nothing \"fills the\n   frame\".\n\n- Every hard cut has a nameable story reason and moves at most one step\n   on the distance ladder. Cutting to an uninvolved body part is a\n   failure.\n\n- After every hard cut, the subject's first mention repeats the\n   identity tag word for word. A cut followed by a bare \"she\" is how\n   the outfit changes mid-clip.\n\n- If the user asked for a shot count, deliver exactly that count. One\n   continuous take has no cuts and no timestamps.\n\n- The word band for the duration is a hard cap. Frame and cut wording\n   counts too — state it in the fewest words that do the job.\n\n- STEP 1 item (g) is not optional. Answer it before you write. If the\n   mouth is open, or a phone is at the face, or two subjects face each\n   other, or the setting is a counter / stage / classroom / match, then\n   the clip HAS a spoken line and you must write it in Shot 1. Silence is\n   a decision you earn by finding none of that in the frame — it is not\n   the default.\n\n- A dialogue line is two things, never one: the tagged line, then the\n   lip sentence. Write BOTH or write neither.\n   Every dialogue line is immediately followed by ONE of exactly these\n   two sentences, copied word for word, changing only the pronoun:\n     Her lips move in natural sync with the spoken words.\n     His lips remain completely closed.\n   Never paraphrase it. \"Her lips part\", \"she mouths the words\", \"her\n   mouth moves\" are all wrong, and the first one is a banned phrase.\n\n- The bracket and the words must be the same language. [Japanese] means\n   the line is written in kana/kanji. English words inside a [Japanese]\n   tag is the single most common dialogue error — if in doubt, tag\n   [English] and write English.\n\n- non_diegetic_music is N/A unless the frame actually shows a musical or\n   performance context. Do not score a clip out of habit.\n\n- Exactly three field labels exist, each written once: \n   integrated_multimodal_description, overall_soundscape,\n   non_diegetic_music. Never invent a fourth. Never repeat one. After the\n   text of non_diegetic_music, the output is finished — stop generating.\n";
+/* builtin system prompts live in sidecar .txt files (loaded in loadPrompts) */
 const $ = s => document.querySelector(s);
 const esc = t => (t||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const onServer = location.protocol.startsWith("http");
@@ -640,15 +640,15 @@ const PAPI = "/api/prompts";
 const MODES = {cuts:"硬切分鏡", onetake:"一鏡到底"};
 function curMode(){ const m = $("#mode").value; return MODES[m] ? m : "cuts"; }
 function PSEL(){ return "h3.prompt." + curMode() + ".v1"; }
-const BUILTIN = {id:"builtin", name:"內建版本 v6（硬切）", text:DEFAULT_SP, builtin:true, mode:"cuts"};
-const BUILTIN_OT = {id:"builtin-onetake", name:"內建版本 v13（一鏡到底）", text:null, builtin:true, mode:"onetake"};
+const BUILTIN = {id:"builtin", name:"內建 硬切 v7（官方規範對齊）", text:null, builtin:true, mode:"cuts", file:"SYSTEM_PROMPT_CUTS_v7_web.txt"};
+const BUILTIN_OT = {id:"builtin-onetake", name:"內建 一鏡到底 v14（官方規範對齊）", text:null, builtin:true, mode:"onetake", file:"SYSTEM_PROMPT_ONETAKE_v14_web.txt"};
 let prompts = [BUILTIN, BUILTIN_OT], active = BUILTIN.id, dirty = null;
 
 function builtinFor(mode){ return mode === "onetake" ? BUILTIN_OT : BUILTIN; }
 function visiblePrompts(){ const m = curMode(); return prompts.filter(p => (p.mode || "cuts") === m); }
 function activeText(){
   const p = prompts.find(x => x.id === active) || builtinFor(curMode());
-  return p.text != null ? p.text : (p.id === "builtin-onetake" ? (BUILTIN_OT.text || DEFAULT_SP) : DEFAULT_SP);
+  return p.text != null ? p.text : (builtinFor(curMode()).text || "");
 }
 window.setMode = m => {
   if (!MODES[m]) return;
@@ -700,10 +700,10 @@ window.pickPrompt = async id => {
 };
 async function loadPrompts(){
   prompts = [BUILTIN, BUILTIN_OT];
-  // the one-take builtin lives in a sidecar file so the HTML stays readable
-  if (BUILTIN_OT.text == null){
-    try { BUILTIN_OT.text = await (await fetch("SYSTEM_PROMPT_ONETAKE_v13_web.txt", {cache:"no-store"})).text(); }
-    catch(e){ BUILTIN_OT.text = ""; }
+  // both builtins live in sidecar files so the HTML stays readable
+  for (const b of [BUILTIN, BUILTIN_OT]) if (b.text == null){
+    try { b.text = await (await fetch(b.file, {cache:"no-store"})).text(); }
+    catch(e){ b.text = ""; }
   }
   if (onServer){
     try {
@@ -1055,179 +1055,177 @@ document.querySelectorAll(".nav").forEach(b => b.onclick = () => setView(b.datas
 // 還原上次分頁的呼叫移到 script 末尾——loadMedia/loadHist 等函式都宣告完才能安全執行
 
 /* ================= 常數與驗證 ================= */
-const MOTIONS=["pushes in","pulls out","tracks left","tracks right","arcs clockwise",
- "arcs counterclockwise","cranes up","cranes down","tilts up","tilts down","pans left",
- "pans right","whip pans","holds static"];
-const BANNED=[/\bbreathes?\b/,/\bbreathing\b/,/\bblinks?\b/,/\bblinking\b/,/\bsighs?\b/,/\bsighing\b/,
- /chest ris(?:es|ing)/,/lips (?:part|parting)/,/smil(?:es|ing) softly/,/nod(?:s|ding) slightly/,
- /hair flutter(?:s|ing)/,/sway(?:s|ing) gently/,/shift(?:s|ing) slightly/,/stand(?:s|ing) calmly/,
- /barely mov(?:es|ing)/,/gaz(?:es|ing) into the distance/,/\bcinematic\b/,/\bepic\b/,
- /\bmasterpiece\b/,/\b8k\b/,/ultra-detailed/,/\bstunning\b/,/\bbreathtaking\b/,/highly detailed/];
-const SHOT_TABLE={4:[2,2],5:[2,2],6:[2,3],7:[2,3],8:[2,3],9:[3,4],10:[3,4],11:[3,4],
- 12:[4,5],13:[4,5],14:[4,5],15:[4,5]};
-const WORD_BAND={4:[60,110],5:[60,110],6:[90,160],7:[90,160],8:[90,160],9:[130,220],
- 10:[130,220],11:[130,220],12:[180,300],13:[180,300],14:[180,300],15:[180,300]};
+/* ================================================================================================
+   validate() v3 — aligned to the official MiniMax H3 "Video Prompt Writing Guide" (base_en).
+   Contract (unchanged): returns {E, W, I, moves, pairs}
+     E = error   -> retry            (official-format violations + the 3 destructive I2V patterns)
+     W = warning -> retry if target is "完全通過"   (softer official points + I2V quality)
+     I = info    -> display only
+   ================================================================================================ */
+const MOTIONS = ["zoom in","zoom out","push in","pull out","pan left","pan right","truck left","truck right",
+  "tilt up","tilt down","pedestal up","pedestal down","arc shot","tracking shot","static shot",
+  "shake slightly","shake strongly","pov","roll clockwise","roll counterclockwise"];   // official table 4.3
+const BANNED = [];   // v6 word-ban list retired: the official examples use words it banned ("cinematic")
+
+function camFamily(t){
+  t = t.toLowerCase();
+  if (/\bstatic\b|holds? (?:nearly |almost )?still|remains? still|stays? (?:nearly )?still|locked off/.test(t)) return "static";
+  if (/\bzoom/.test(t)) return "zoom";
+  if (/\bpush(?:es|ing)? in|\bdollies in|\bmoves? (?:in|closer)/.test(t)) return "push";
+  if (/\bpulls? out|\bpull(?:s|ing)? back|\bdollies out|\bmoves? (?:out|back|away)/.test(t)) return "pull";
+  if (/\bpan(?:s|ning)?\b/.test(t)) return "pan";
+  if (/\btruck/.test(t)) return "truck";
+  if (/\btilt/.test(t)) return "tilt";
+  if (/\bpedestal|\bcranes? (?:up|down)|\brises?\b|\blowers?\b/.test(t)) return "pedestal";
+  if (/\barc/.test(t)) return "arc";
+  if (/\btrack/.test(t)) return "tracking";
+  if (/\bshak/.test(t)) return "shake";
+  if (/\bpov\b|point of view/.test(t)) return "pov";
+  if (/\broll/.test(t)) return "roll";
+  if (/\bdrift|\bglide|\bease|\bnudge/.test(t)) return "drift";   // tiny motion; treat as pan/truck-lite (not official but harmless)
+  return null;
+}
 
 function validate(c, target, wantShots){
   wantShots = parseInt(wantShots) || 0;
-  const E=[], W=[], I=[];   // E=錯誤 W=警告(會觸發重試) I=提示(只顯示，不重試)
-  const body = c.includes("\n") ? c.slice(c.indexOf("\n")+1) : "";
+  const E=[], W=[], I=[];
+  const oneTake = (typeof curMode === "function") ? curMode() === "onetake" : (wantShots === 1);
+
+  /* ---------- 0. transport hygiene ---------- */
   if (c.includes("<think>")) E.push("<think> 洩漏進 content");
+  if (/^\s*```/m.test(c)) E.push("輸出含程式碼框");
+
+  /* ---------- 1. the three official fields, in order, once each (guide §2.2) ---------- */
   const labs=["integrated_multimodal_description:","overall_soundscape:","non_diegetic_music:"];
   const idx = labs.map(l => c.indexOf(l));
   labs.forEach((l,i)=>{ if(idx[i]<0) E.push("缺少欄位 "+l) });
   if (idx.every(i=>i>=0) && !(idx[0]<idx[1] && idx[1]<idx[2])) E.push("欄位順序錯誤");
   labs.forEach(l => { if (c.split(l).length > 2) E.push("欄位 "+l+" 出現多次") });
-  if (!c.startsWith("For the target video")) E.push("開頭固定句不正確");
-  if (/^\s*```/m.test(c)) E.push("輸出含程式碼框");
+  const imd  = idx[0]>=0 ? c.slice(idx[0]+labs[0].length, idx[1]>0?idx[1]:undefined).trim() : "";
+  const snd  = idx[1]>=0 ? c.slice(idx[1]+labs[1].length, idx[2]>0?idx[2]:undefined).trim() : "";
+  const mus  = idx[2]>=0 ? c.slice(idx[2]+labs[2].length).trim() : "";
+  const body = imd;
 
-  let pre = body.includes("[Shot 1]")
-    ? body.slice(0, body.indexOf("[Shot 1]")).replace(/integrated_multimodal_description:/,"").trim() : "";
-  /* a LoRA MAIN trigger legitimately sits before [Shot 1] after post-processing ("2dan1m, [Shot 1] ...").
-     Recognise the shape itself (short comma-terminated token list) so re-validating old records works even
-     when the current UI has a different LoRA (or none) selected. */
-  if (/^[A-Za-z0-9_\-]{1,32}(?:,\s*[A-Za-z0-9_\-]{1,32}){0,5},$/.test(pre)) pre = "";
-  if (pre.length > 5) E.push("[Shot 1] 之前有多餘文字：" + pre.slice(0,50));
+  /* ---------- 2. alignment line (guide §2.1): I2VA "always uses" it — but the DaSiWa Director
+                  injects it, so its ABSENCE is only info; if PRESENT it must be verbatim ---------- */
+  const head = idx[0]>0 ? c.slice(0, idx[0]).trim() : "";
+  const ALIGN = /^For the target video, at 0\.00 seconds into the target video, <Picture 1> \(from \[Shot 1\]\) is fully referenced\.$/;
+  if (head){
+    if (!ALIGN.test(head.split("\n")[0].trim())) E.push("對齊行格式不符官方："+head.split("\n")[0].slice(0,70));
+    else if (head.split("\n").filter(x=>x.trim()).length > 1) E.push("對齊行之後、欄位之前有多餘文字");
+  } else {
+    I.push("無對齊行 — 送 Director 會自動注入；若直接貼原生節點請自行補第一行");
+  }
 
+  /* ---------- 3. [Shot N] structure (guide §4.2) ---------- */
+  let pre = body.includes("[Shot 1]") ? body.slice(0, body.indexOf("[Shot 1]")).trim() : "";
+  if (/^[A-Za-z0-9_\-]{1,32}(?:,\s*[A-Za-z0-9_\-]{1,32}){0,5},$/.test(pre)) pre = "";   // LoRA MAIN prefix is legal
+  if (!body.includes("[Shot 1]")) E.push("描述必須以 [Shot 1] 開始");
+  else if (pre.length > 5) E.push("[Shot 1] 之前有多餘文字："+pre.slice(0,50));
   const shots=[...body.matchAll(/\[Shot (\d+)\]/g)].map(m=>+m[1]);
-  if (shots.join() !== shots.map((_,i)=>i+1).join()) E.push("鏡頭編號異常 "+JSON.stringify(shots));
-  const ts=[...body.matchAll(/At (\d{2}):(\d{2}\.\d{3})/g)].map(m=>+m[1]*60+parseFloat(m[2]));
-  if (ts.join() !== [...new Set(ts)].sort((a,b)=>a-b).join()) E.push("時間戳未嚴格遞增 "+JSON.stringify(ts));
-  if (ts.length && Math.max(...ts) >= target) E.push(`時間戳 ${Math.max(...ts)} 已達或超過目標 ${target}s`);
-  if (ts.length && target - Math.max(...ts) < 1.5)
-    E.push(`末鏡只剩 ${(target-Math.max(...ts)).toFixed(2)}s，不足 1.5s`);
-  if (shots.length && shots.length !== ts.length+1) W.push(`${shots.length} 鏡但 ${ts.length} 個時間戳`);
-  if (wantShots){
-    if (shots.length !== wantShots)
-      E.push(`要求${wantShots===1?"一鏡到底":wantShots+" 鏡"}，實際 ${shots.length} 鏡`);
-    if (wantShots === 1){
-      if (/hard cut/i.test(body)) E.push("一鏡到底不可出現 hard cut");
-      if (ts.length) E.push("一鏡到底不可有時間戳");
-    }
-  } else {
-    const exp = SHOT_TABLE[Math.round(target)] || [2,5];
-    if (shots.length && (shots.length<exp[0] || shots.length>exp[1]))
-      E.push(`${shots.length} 鏡，時長表要求 ${exp[0]}–${exp[1]} 鏡`);
+  if (shots.length && shots.join() !== shots.map((_,i)=>i+1).join()) E.push("鏡頭編號必須連續 1,2,3… 實際 "+JSON.stringify(shots));
+  const ts=[...body.matchAll(/\[Shot (\d+)\]\s*At (\d{2}):(\d{2}\.\d{3})/g)].map(m=>({n:+m[1], t:+m[2]*60+parseFloat(m[3])}));
+  const anyTs=[...body.matchAll(/At (\d{2}):(\d{2}\.\d{3})/g)].map(m=>+m[1]*60+parseFloat(m[2]));
+  if (/\[Shot 1\]\s*At \d{2}:\d{2}\.\d{3}/.test(body)) E.push("[Shot 1] 不可帶時間戳（官方：first shot has no timestamp）");
+  for (const s of shots.slice(1)) if (!ts.some(x=>x.n===s)) E.push("[Shot "+s+"] 必須以 At MM:SS.mmm 開頭");
+  const tsv = ts.map(x=>x.t);
+  if (tsv.join() !== [...tsv].sort((a,b)=>a-b).join() || new Set(tsv).size !== tsv.length) E.push("時間戳必須嚴格遞增 "+JSON.stringify(tsv));
+  if (tsv.length && Math.max(...tsv) >= target) E.push(`時間戳 ${Math.max(...tsv)} 已達或超過影片時長 ${target}s`);
+  if (tsv.length && target - Math.max(...tsv) < 1.0) W.push(`末鏡只剩 ${(target-Math.max(...tsv)).toFixed(2)}s`);
+  /* cut verbs: official list */
+  const cutOK = /(?:the camera|the shot) (?:cuts to|transitions to|changes to|switches to)|cross-?dissolve|fades? (?:to|in|out)|wipe/i;
+  shots.slice(1).forEach(sn=>{ const seg=body.split("[Shot "+sn+"]")[1]||""; if(!cutOK.test(seg.slice(0,140))) W.push(`[Shot ${sn}] 建議用官方切換用語（the camera cuts to / the shot transitions to …）`); });
+
+  /* ---------- 4. mode-specific structure ---------- */
+  if (oneTake || wantShots === 1){
+    if (shots.length > 1) E.push("一鏡到底不可有 [Shot 2] 以上（那是硬切）");
+    if (anyTs.length) E.push("一鏡到底不可有時間戳");
+    if (/(?<![A-Za-z])(?:hard cut|cuts? to|jumps? to)(?![A-Za-z])/i.test(body)) E.push("一鏡到底不可出現 cut to / hard cut");
+  } else if (wantShots > 1 && shots.length && shots.length !== wantShots){
+    W.push(`要求 ${wantShots} 鏡，實際 ${shots.length} 鏡`);
   }
 
-  const oneTake = curMode() === "onetake";
-  let moves = [], pairs = [];
-  if (!oneTake){
-    /* ---- 硬切模式：v6 的嚴格 camera 句型 ---- */
-    const re=/[Tt]he camera ([a-z ]{3,28}?) with (small|medium|large) amplitude at (slow|moderate|fast) speed/g;
-    const cams=[...body.matchAll(re)];
-    moves=cams.map(m=>m[1].trim()); pairs=cams.map(m=>m[2]+"/"+m[3]);
-    moves.forEach(m=>{ if(!MOTIONS.includes(m)) E.push(`非法運鏡 "${m}"`) });
-    if (shots.length && cams.length < shots.length) E.push(`${cams.length}/${shots.length} 鏡符合 camera 句型`);
-    const statics = moves.filter(m=>m==="holds static").length;
-    if (statics > 1) E.push(`${statics} 個靜止鏡頭（上限 1）`);
-    if (pairs.length && !cams.some(m=>m[2]==="medium"||m[2]==="large")) E.push("沒有任何一鏡用 medium/large 幅度");
-    if (pairs.length>1 && new Set(pairs).size===1) E.push("每鏡幅度+速度完全相同");
-    if (new Set(moves).size < moves.length)
-      W.push("運鏡重複："+moves.filter((m,i)=>moves.indexOf(m)!==i).join(", "));
-    if (!/No additional people appear at any point\.|No people beyond the two established in Picture 1 appear\./.test(c))
-      E.push("缺少 census guard 句");
-  } else {
-    /* ---- 一鏡到底模式：v13 / DaSiWa 官方詞彙 ----
-       運鏡句 = "The camera <動詞散文> with small|large amplitude at slow|fast speed."
-       每個階段一句、動詞家族不重複、push/zoom 只能在最後。 */
-    const re=/[Tt]he camera ([a-z][^.]{2,120}?) with (small|large|medium) amplitude at (slow|fast|moderate) speed/g;
-    const cams=[...body.matchAll(re)];
-    moves=cams.map(m=>m[1].trim()); pairs=cams.map(m=>m[2]+"/"+m[3]);
-    /* EVERY sentence that starts with "The camera" must be a complete direction (both slots).
-       Bare ones like "The camera tracks alongside her as she moves." used to slip through because
-       the count-based check only looked at the complete ones. */
-    const allCam=[...body.matchAll(/(?:^|[.;!?]\s+)(The camera [^.]*?\.)/g)].map(m=>m[1]);
-    const bare=allCam.filter(x=>!/with (?:small|large|medium) amplitude[^.]*?at (?:slow|fast|moderate) speed/.test(x));
-    bare.forEach(x=>E.push(`運鏡句缺 amplitude/speed：「${x.slice(0,60)}${x.length>60?"…":""}」`));
-    /* I2V-safety policy: large only with push/zoom; never behind her; never "reveal" new scenery */
-    cams.forEach(m=>{
-      const mv=m[1].toLowerCase(), amp=m[2];
-      const isPush=/push|zoom|move[sd]? (in|closer)|close[sd]? in/.test(mv);
-      if (amp==="large" && !isPush) E.push(`large amplitude 只准用在 push/zoom：「${m[1].trim().slice(0,40)}」`);
-    });
-    if (/(?:arc|orbit|circle|swing)s?[^.]{0,60}(?:behind her|to her back|around to the back|full circle|all the way around|360)/i.test(body)
-        || /reveal(?:s|ing)? (?:her|the) (?:back|spine|buttocks|rear)/i.test(body)
-        || /turns? (?:her|his) back (?:to|toward|on) the (?:camera|lens|viewer)[^.]*?(?:reveal|expos|show)/i.test(body))
-      E.push("畫面轉到人物背面 / 揭露背面（首幀沒有的內容，I2V 最容易崩）");
-    if (/[Tt]he camera [^.]*?(?:reveal|uncover|expos)[^.]*?(?:scene|scenery|room|space|background|landscape|doorway|window|sky|corridor|hallway)/.test(body))
-      W.push("鏡頭移動去「揭露」首幀外的場景——建議改成留在首幀範圍內");
-    const fam = t => { t=t.toLowerCase();
-      if (/\bhold|\bstay|\bremain|near(?:ly)?[- ]static|\bsettle|\bsteady|\bstill\b/.test(t)) return "hold";   // near-static opener (safest)
-      if (/\bdrift|\bglide|\bease|\bnudge/.test(t)) return "drift";                                             // tiny lateral / float
-      for (const k of ["track","truck","arc","pan","pedestal","tilt","roll","shake","pov","crane","dolly"]) if (t.includes(k)) return k;
-      if (/push|zoom|move[sd]? (in|closer)|close[sd]? in/.test(t)) return "push/zoom";
-      if (/pull|move[sd]? (out|back|away)/.test(t)) return "pull";
-      return null; };
-    const fams = cams.map(m => fam(m[1]));
-    fams.forEach((f,i)=>{ if(!f) E.push(`運鏡動詞無法辨識 "${cams[i][1].trim().slice(0,40)}"`) });
-    cams.forEach(m=>{ if (m[2]==="medium"||m[3]==="moderate") W.push("一鏡到底只用 small/large 與 slow/fast（medium/moderate 非官方詞彙）"); });
-    /* 階段數：以 prose cue 粗估，至少要 2 句運鏡 */
-    const phaseCues = (body.match(/(?:^|[.;] )(?:Then,|And finally,|Then she|She then|And then|A moment later|By the end|Finally,|As she (?:completes|finishes|reaches|straightens|turns|stops|lands|settles)|Once she|After that|From there|Next,|Now she|With that)(?![A-Za-z])/g)||[]).length;
-    const wantCams = Math.min(3, Math.max(2, 1 + phaseCues));
-    if (cams.length < 2) E.push(`一鏡到底只有 ${cams.length} 句運鏡（每階段一句，至少 2）`);
-    else if (cams.length < wantCams) I.push(`${cams.length} 句運鏡但約 ${wantCams} 個階段（建議每階段一句）`);
-    if (cams.length > 4) W.push(`${cams.length} 句運鏡（建議 ≤3）`);
-    const dup = fams.filter((f,i)=>f && f!=="hold" && f!=="drift" && fams.indexOf(f)!==i);
-    if (dup.length) E.push("運鏡動詞家族重複："+[...new Set(dup)].join(", "));
-    const pz = fams.map((f,i)=>f==="push/zoom"?i:-1).filter(i=>i>=0);
-    if (pz.length>1) E.push("push/zoom 出現超過一次");
-    else if (pz.length===1 && pz[0]!==fams.length-1) I.push("push/zoom 不在最後一個階段（建議留給收尾）");
-    if (/(?<![A-Za-z])cut(?:s|ting)? to(?![A-Za-z])|hard cut|(?<![A-Za-z])jumps? to(?![A-Za-z])/i.test(body)) E.push("一鏡到底不可出現 cut to / hard cut");
-    /* motion quality: repetitive / oscillating motion smears in I2V; blur words are executed literally */
-    const rep_m = body.match(/\b(?:rhythmic(?:ally)?|repeatedly|again and again|over and over|back and forth|up and down|bobbing|bobs|pumping|pumps|bouncing|bounces|waving|waves (?:her|his|a) (?:hand|arm)|clapping|claps|nodding repeatedly|tapping|taps|shaking|shakes (?:her|his) (?:head|hips|body)|wiggling|wiggles|jiggling|jiggles|swaying back|rocking|rocks back)\b/gi);
-    if (rep_m) E.push("往復/高頻動作會糊（" + [...new Set(rep_m.map(x=>x.toLowerCase()))].slice(0,3).join(", ") + "）— 改成單向動作");
-    const blur_m = body.match(/\b(?:blur(?:red|ring|ry|s)?|hazy|haze|out of focus|soft[- ]focus|smear(?:ed|ing|s)?|motion[- ]blur|bokeh)\b/gi);
-    if (blur_m) E.push("描述裡出現模糊詞彙，H3 會照做（" + [...new Set(blur_m.map(x=>x.toLowerCase()))].slice(0,3).join(", ") + "）— 刪掉，或改寫成「in crisp focus」");
-    if (!/No additional people/i.test(c)) E.push("缺少 No additional people 子句");
-    if (!/Preserve/.test(c)) W.push("缺少 Preserve 子句");
-    else if (/Preserve[^.]*(?:each named specifically|the key scenery|her hair, outfit and)/i.test(c))
-      E.push("Preserve 子句抄了模板原文（each named specifically / the key scenery）——要具體列出這張圖的物件");
+  /* ---------- 5. style declaration at the head of Shot 1 (guide §4.1) ---------- */
+  const shot1 = body.split(/\[Shot 2\]/)[0];
+  if (!/\[Shot 1\][^.]{0,160}(anime|animated|live-action|cinematic|3D|CG|claymation|watercolor|vintage film|illustration|render|painterly|cel|pixel)/i.test(shot1))
+    W.push("[Shot 1] 開頭應宣告整體風格（官方：Live-action / 2D-animated / 3D CG…）");
+
+  /* ---------- 6. camera sentences (guide §4.3) ----------
+        - motion type from the official table (family match, natural English)
+        - amplitude/speed OPTIONAL ("medium and normal are usually omitted"); if present must be small|large / slow|fast
+        - static shot legitimately carries neither */
+  /* sentence-initial "The camera …" OR a mid-sentence clause ", as/while the camera <official verb> …"
+     (the verb whitelist keeps narrative "looks at the camera" from matching) */
+  const CAM_VERB = "(?:pushes|pulls|zooms|pans|trucks|tilts|pedestals|arcs|tracks|holds|shakes|rolls|remains|stays|drifts|glides|dollies|cranes|orbits)";
+  const CAM_RE = new RegExp("(?:^|[.;!?]\\s+|\\]\\s+)((?:The|the) camera [^.]*?\\.)|(?:,|\\bas|\\bwhile|\\band|\\bthen)\\s+(the camera " + CAM_VERB + "[^.]*?\\.)", "g");
+  const camSents=[...body.matchAll(CAM_RE)].map(m=>m[1]||m[2]);
+  const moves=[], pairs=[];
+  camSents.forEach(cs=>{
+    const fam = camFamily(cs);
+    const amp = (cs.match(/with (\w+) amplitude/)||[])[1];
+    const spd = (cs.match(/at (\w+) speed/)||[])[1];
+    if (!fam) W.push(`運鏡動詞不在官方表內：「${cs.slice(0,60)}」（Zoom/Push/Pull/Pan/Truck/Tilt/Pedestal/Arc/Tracking/Static/Shake/POV/Roll）`);
+    if (amp && !/^(small|large)$/.test(amp)) W.push(`amplitude 只有 small/large（官方），不用「${amp}」— 中間值直接省略`);
+    if (spd && !/^(slow|fast)$/.test(spd)) W.push(`speed 只有 slow/fast（官方），不用「${spd}」— 中間值直接省略`);
+    if (fam) moves.push(fam); pairs.push((amp||"-")+"/"+(spd||"-"));
+    /* I2V-safety: large amplitude only where it does not force new scenery */
+    if (amp==="large" && fam && !["push","zoom","static"].includes(fam)) W.push(`large amplitude 配 ${fam} 容易糊（首幀外要重畫）— 建議 small，或改 push in`);
+  });
+  /* not per-shot: the official T2VA example itself has a shot with no camera sentence */
+  if (shots.length && camSents.length === 0) W.push("沒有任何運鏡句（官方範例每支影片至少有一句 The camera …）");
+  /* the three destructive I2V patterns stay as ERRORS */
+  if (/(?:arc|orbit|circle|swing)s?[^.]{0,60}(?:behind her|behind him|to (?:her|his) back|around to the back|full circle|all the way around|360)/i.test(body)
+      || /reveal(?:s|ing)? (?:her|his|the) (?:back|spine|rear)\b/i.test(body)
+      || /turns? (?:her|his) back (?:to|toward|on) the (?:camera|lens|viewer)[^.]*?(?:reveal|expos|show)/i.test(body))
+    E.push("畫面轉到人物背面 / 揭露背面 — 首幀沒有的內容，I2V 會崩");
+  const rep_m = body.match(/\b(?:rhythmic(?:ally)?|repeatedly|again and again|over and over|back and forth|up and down|bobbing|bobs|pumping|pumps|bouncing|bounces|waving|waves (?:her|his|a) (?:hand|arm)|clapping|claps|nodding repeatedly|tapping|taps|shaking|shakes (?:her|his) (?:head|hips|body)|wiggling|wiggles|jiggling|jiggles|rocking|rocks back)\b/gi);
+  if (rep_m) E.push("往復/高頻動作會糊（"+[...new Set(rep_m.map(x=>x.toLowerCase()))].slice(0,3).join(", ")+"）— 改成單向動作");
+  /* hazy/haze count only as VISUAL softness — "eyes hazy with pleasure" / "hazy memory" is figurative */
+  const blur_m = body.match(/\b(?:blur(?:red|ring|ry|s)?|out of focus|soft[- ]focus|smear(?:ed|ing|s)?|motion[- ]blur|bokeh)\b|(?<!\b(?:eyes?|gaze|look|expression|stare|mind|memory|memories|thoughts?)\b[^.]{0,40})\b(?:hazy|haze)\b(?!\s+(?:memory|memories|recollection|thoughts?|idea|smile|look|expression|gaze|eyes?)\b)/gi);
+  if (blur_m) E.push("描述裡出現模糊詞彙，H3 會照做（"+[...new Set(blur_m.map(x=>x.toLowerCase()))].slice(0,3).join(", ")+"）");
+  if (/[Tt]he camera [^.]*?(?:reveal|uncover|expos)[^.]*?(?:scene|scenery|room|space|background|landscape|doorway|window|sky|corridor|hallway)/.test(body))
+    W.push("鏡頭移動去揭露首幀外的場景 — 建議留在首幀範圍內");
+  if (/fill(?:s|ing) the (?:entire )?frame/i.test(body)) W.push("「fills the frame」易過近或裁切");
+  if (/(?:walks|steps|runs|moves|exits) (?:out of|off|beyond) (?:the )?(?:frame|shot|view)/i.test(body)) W.push("主體離開畫面 — 結尾應仍包含主體");
+
+  /* ---------- 7. dialogue (guide §4.4): dialogue lives in imd; (S1) <d>[Lang] …</d>; voiceover lip sentence ---------- */
+  const dl=[...c.matchAll(/\(S\d(?:,S\d)*\)[^<]{0,120}<d>\[([^\]]+)\]([^<]*)<\/d>/g)];
+  const dAll=(c.match(/<d>/g)||[]).length;
+  if (dAll && !dl.length) E.push("有對白但不是 (S1) … <d>[語言] …</d> 官方格式");
+  if (dAll > 2) W.push(`${dAll} 句對白（建議 1–2 句）`);
+  dl.forEach(m=>{
+    const lang=m[1].trim(), txt=m[2].trim();
+    if (/english/i.test(lang) && /[぀-ヿ一-鿿]/.test(txt)) E.push("語言標籤 [English] 但內容不是英文");
+    if (/japanese/i.test(lang) && !/[぀-ヿ一-鿿]/.test(txt)) W.push("語言標籤 [Japanese] 但內容看起來不是日文");
+  });
+  const vo=[...c.matchAll(/says in an off-screen voiceover[^<]*<d>[^<]*<\/d>([^.]*)/gi)];
+  vo.forEach(m=>{ if(!/lips remain (?:completely )?closed/i.test(m[1])) E.push("voiceover 之後必須接「lips remain completely closed」句（官方 §4.4）"); });
+  if (/\(S\d\)\s*\(S\d\)/.test(c)) W.push("說話者 ID 重複寫了兩次（(S1) (S1)）");
+  /* the closed-lips sentence belongs to off-screen voiceover only (guide §4.4); on an on-screen line it tells H3 to keep the mouth shut while speaking */
+  if ([...c.matchAll(/[^.]*<d>[^<]*<\/d>[^.]*lips remain (?:completely )?closed[^.]*/gi)].some(m => !/off-?screen|voice-?over|voiceover|narrat/i.test(m[0])))
+    W.push("非旁白的台詞卻寫「lips remain completely closed」— 只有 off-screen voiceover 才接這句（官方 §4.4）");
+  if (/<d>/.test(snd)) W.push("對白應寫在 integrated_multimodal_description，overall_soundscape 不重複（官方 §4.6）");
+  if (/\[(?:English|Japanese|Chinese|Korean)\]/.test(c) && !dAll) W.push("有語言標籤但沒有 <d> 對白");
+
+  /* ---------- 8. soundscape / music (guide §4.6–4.7) ---------- */
+  if (snd && !/N\/A/i.test(snd)){
+    const sn = snd.split(/[.!?](?:\s|$)/).filter(x=>x.trim()).length;
+    if (sn > 4) W.push(`overall_soundscape ${sn} 句（官方 1–4 句）`);
+  }
+  if (mus && !/^N\/A\.?$/i.test(mus.trim())){
+    const mn = mus.split(/[.!?](?:\s|$)/).filter(x=>x.trim()).length;
+    if (mn > 3) W.push(`non_diegetic_music ${mn} 句（官方 1–3 句）`);
+    const mood = mus.match(/\b(?:melancholic|melancholy|hopeful|tense|tension|dreamy|romantic|sad|happy|joyful|nostalgic|epic|emotional|uplifting|haunting|eerie|ominous|whimsical|playful|mysterious|triumphant|bittersweet)\b/gi);
+    if (mood) W.push("音樂不用抽象情緒詞（官方 §4.7）："+[...new Set(mood.map(x=>x.toLowerCase()))].slice(0,3).join(", ")+" — 改寫成樂器/速度/節奏/動態");
   }
 
-  if (c.includes("<d>")){
-    const dl=[...c.matchAll(/\(S\d\)\s*<d>\[([^\]]+)\]([^<]*)<\/d>/g)];
-    if (!dl.length) E.push("有對白但不是 (S1) <d>[語言] …</d> 格式");
-    if (!/lips move in natural sync|lips remain completely closed/.test(c))
-      E.push("有對白但缺少嘴型句（須逐字照抄）");
-    for (const m of dl){
-      const cjk=/[぀-ヿ一-鿿가-힯]/.test(m[2]);
-      const L=m[1].trim().toLowerCase();
-      if (["japanese","chinese","korean","mandarin"].includes(L) && !cjk)
-        E.push(`語言標籤 [${m[1]}] 但內容不是該語言：${m[2].trim().slice(0,30)}`);
-      if (L==="english" && cjk) E.push("語言標籤 [English] 但內容不是英文");
-    }
-    if (dl.length>2) W.push(`${dl.length} 句對白（建議 1 句，最多 2 句）`);
-  } else {
-    for (const t of ["<scenetrans>","(S1)","</d>"])
-      if (c.includes(t)) E.push(`沒有對白卻殘留標籤 ${t}`);
-  }
+  /* ---------- 9. content lock (project rule, kept as warning) ---------- */
+  if (!/No additional people|No people beyond the/i.test(body)) W.push("建議以「No additional people …」收尾，避免多出人物");
+  if (/Preserve[^.]*(?:each named specifically|the key scenery|her hair, outfit and)/i.test(body)) W.push("Preserve 子句抄了模板原文 — 要具體列出這張圖的物件");
 
-  const low = c.toLowerCase()
-    .replace(/lips move in natural sync with the spoken words\./g,"")
-    .replace(/lips remain completely closed\./g,"");
-  const hits = BANNED.map(r => (low.match(r)||[])[0]).filter(Boolean);
-  if (hits.length) E.push("禁用詞："+hits.join(", "));
-
-  const wl = body.split("overall_soundscape:")[0].replace(/\[Shot \d+\]/g," ").trim().split(/\s+/).length;
-  let band = WORD_BAND[Math.round(target)] || [90,160];
-  if (wantShots === 1) band = [50, band[1]];   // 一鏡到底本來就短
-  if (wl > band[1]*1.25) E.push(`描述 ${wl} 字（${target}s 的區間是 ${band[0]}–${band[1]}）`);
-  else if (wl > band[1] || wl < band[0]) W.push(`描述 ${wl} 字（${target}s 的區間是 ${band[0]}–${band[1]}）`);
-
-  if (curMode() !== "onetake" && !/\[Shot 1\][^.]{0,140}(anime|live-action|photorealistic|illustration|render|pixel art|painterly|cel)/i.test(body))
-    W.push("Shot 1 開頭沒有媒材宣告");
-  if (curMode() !== "onetake" &&
-      /toward the (camera|lens|viewer)|into the lens|tracks backward|pulls back|clos(es|ing) (the )?distance to the (viewer|camera|lens)/i.test(body))
-    W.push("主體朝鏡頭衝／攝影機後退（已被禁的通用答案）");
-  if (/fill(s|ing) the frame/i.test(body))
-    E.push("出現「fills the frame」——會導致過近或裁切");
-  if (/exit(s|ing) the frame|out of view|out of frame|leaves? the frame|walks? out of shot/i.test(body))
-    E.push("主體離開畫面——結尾畫面必須包含主體");
-  if (/hard cut to [^.]{0,50}close-?up of (her|his|their) (chest|bust|cleavage|feet|legs|thighs|hips|butt)/i.test(body))
-    W.push("切到與動作無關的身體部位特寫");
   return {E, W, I, moves, pairs};
 }
+
 
 /* ================= 連線 ================= */
 function setDot(state, text){
@@ -1348,6 +1346,18 @@ function retryCfg(){
 function isClean(v, lvl){
   return lvl === "noerr" ? !v.E.length : (!v.E.length && !v.W.length);
 }
+/* deterministic post-fix for one frequent model slip: the first shot written without its literal
+   "[Shot 1]" marker (or with a malformed one). Nothing here changes meaning; validate() still runs after. */
+function repair(c){
+  const k = "integrated_multimodal_description:", i = c.indexOf(k); if (i < 0) return c;
+  const head = c.slice(0, i + k.length); let body = c.slice(i + k.length);
+  body = body.replace(/^(\s*)\[?\s*shot\s*1(?!\d)\s*\]?\s*[:.\-\u2013]?\s*/i, "$1[Shot 1] ");
+  if (!body.includes("[Shot 1]")){
+    const m = body.match(/^(\s*(?:For the target video[^\n]*\n\s*)?)/);   // keep an in-field alignment line first
+    body = m[1] + "[Shot 1] " + body.slice(m[1].length);
+  }
+  return head + body;
+}
 async function genOnce(imgUrl, utext, target, wantShots){
   const j = await chat([
     {role:"system", content: activeText() + loraSystemSuffix()},
@@ -1355,7 +1365,7 @@ async function genOnce(imgUrl, utext, target, wantShots){
                            {type:"text",text:utext}]}
   ], {max:4000});
   const raw = j.choices[0].message.content || "";
-  const content = trim(raw);
+  const content = repair(trim(raw));
   const v = validate(content, target, wantShots);
   return { j, raw, content, v, score: v.E.length*100 + v.W.length };
 }
