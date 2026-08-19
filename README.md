@@ -62,7 +62,9 @@
 - **警告（目標「完全通過」時才重試）**：`medium` / `moderate` 沒省略、非官方運鏡動詞（drift…）、`large amplitude` 配非 push/zoom 運鏡、音樂抽象情緒詞或解釋情緒功能、角色聽得到的音樂寫進 `non_diegetic_music`、`<d>` 內夾語氣動作、非旁白卻寫唇句、缺風格宣告、缺人數鎖定句等。
 - **提示（只顯示）**：無對齊行（Director 會補）。
 
-模型偶爾漏寫 `[Shot 1]` 標記，會在驗證前自動補回，不算錯誤。
+模型偶爾漏寫 `[Shot 1]` 標記、或在台詞前漏掉 `(S1)`（單一說話者、有明確說話動詞時），會在驗證前自動補回，不算錯誤。
+
+兩條專案規則（官方文件沒寫、但實測必要）：**螢幕內說話的每句 `<d>` 後面必須接 `Her lips move in natural sync with the spoken words.`**（沒有這句 H3 嘴巴不會動；旁白則改接 `lips remain completely closed`），以及**補充劇情裡用「」或 "" 給的台詞必須逐字出現在 `<d>` 裡**（沒寫 = 錯誤）。
 
 ### 其他
 
@@ -153,7 +155,7 @@ config.json 你的個人設定
 拖多張圖進來（依檔名排序後逐一送出）。每張圖卡上可以：
 
 - **階段數 / 鏡頭數**：一鏡到底選 2 或 3 階段；硬切選 1–4 鏡
-- **補充劇情（選填）**：中文即可，寫**動作**不寫情緒、寫**畫面裡有的**東西、一句話一到兩個動作。想觸發 LoRA 就寫該行為的中文代號。
+- **補充劇情（選填）**：中文即可，寫**動作**不寫情緒、寫**畫面裡有的**東西、一句話一到兩個動作。想觸發 LoRA 就寫該行為的中文代號。要指定台詞就用引號：`她轉頭說「見ててね！」`——引號裡的字會逐字進 `<d>`（原語言、不翻譯）。
 
   ```
   她把瓶子舉起來喝東西，然後坐下。
@@ -182,6 +184,7 @@ non_diegetic_music: ...
 - 對齊行（`For the target video, at 0.00 seconds…`）預設不寫（Director 節點會注入）；要模型自己寫就在補充劇情加一句 `full prompt`
 - 一鏡到底：只有一個 `[Shot 1]`，每階段一句 `The camera <官方運鏡> with small|large amplitude at slow|fast speed.`
 - 硬切：`[Shot 2] At 00:04.000, the camera cuts to …`，每鏡一句運鏡，`large amplitude` 只配 push in / zoom in
+- 兩種模式的移動鏡頭預設都寫滿 `with small amplitude at slow speed`（官方允許省略＝medium/normal，但 normal 速度是 I2V 動態模糊的來源，所以這裡一律寫 slow）
 - LoRA：MAIN 在最前面，SUB key 緊鄰對應動作
 
 ### 3. 系統設定

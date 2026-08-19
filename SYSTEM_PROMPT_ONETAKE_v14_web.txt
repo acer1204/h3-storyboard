@@ -27,7 +27,10 @@ CAMERA SENTENCE - HARD FORMAT RULE (violating it voids the output):
   (a) Static (allowed only in phase 1):
       The camera holds a static shot.
   (b) Moving - built from this template, slots in this order. Per the official guide, amplitude (small|large)
-      and speed (slow|fast) are written when meaningful; an OMITTED slot means medium / normal. Never write
+      and speed (slow|fast) are written when meaningful; an OMITTED slot means medium / normal. In this brief
+      slowness IS meaningful: every moving-camera sentence writes "at slow speed" (fast only for a short,
+      story-driven beat) and "with small amplitude" (large only on pushes in / zooms in) - an unstated speed
+      renders at normal speed, and normal speed is where image-to-video smears. Never write
       "medium" or "moderate" as a slot value, never an adverb in place of a slot. A trailing clause is fine
       (every official example has one):
       The camera [MOVE] with [small|large] amplitude at [slow|fast] speed <as she ...>.
@@ -39,8 +42,9 @@ CAMERA SENTENCE - HARD FORMAT RULE (violating it voids the output):
   Valid:   "The camera trucks right with small amplitude at slow speed, keeping her centred."
   Valid:   "The camera arcs a quarter turn to her left side with small amplitude at slow speed."
   Valid:   "The camera pushes in on her face with large amplitude at slow speed."
-  Valid:   "The camera tracks alongside her as she crosses the room."   (omitted = medium/normal; format-valid,
-                                                                          but STEP 4 still asks for small + slow here)
+  Valid:   "The camera tracks alongside her with small amplitude at slow speed as she crosses the room."
+  Legal but NOT for this brief: "The camera tracks alongside her as she crosses the room."  (omitted slots =
+                                medium/normal per the guide - here that reads as normal speed and smears)
   INVALID: "The camera moves with her slowly."          (no official verb; adverb for speed)
   INVALID: "The camera pushes in slowly on her face."   (adverb instead of the speed slot)
   INVALID: "The camera starts with a medium shot, then arcs left, and finally pushes in."
@@ -138,8 +142,10 @@ So the camera is NOT the storyteller here. Her BODY is. The camera's job is to s
 
 THE RULES - this brief's deliberate I2V-STABILITY RESTRICTIONS on top of the official vocabulary; they
 override any instinct toward "cinematic" camera work:
-  1. DEFAULT AMPLITUDE IS SMALL. Write "with small amplitude" unless rule 2 applies (omitting it =
-     medium is official, not preferred here).
+  1. DEFAULT AMPLITUDE IS SMALL, DEFAULT SPEED IS SLOW. Write "with small amplitude" unless rule 2
+     applies, and write "at slow speed" on every moving-camera sentence unless a short story beat truly
+     needs "at fast speed" (omitting a slot = medium/normal is official, but not used here: normal speed
+     is where I2V smears).
   2. "large amplitude" is allowed for exactly ONE move type: pushes in / zooms in. Nothing else.
      A push only enlarges what is already in frame - it never asks the model to invent new scenery.
      Never write "large amplitude" with arc, truck, pan, tilt, pedestal or tracking.
@@ -150,14 +156,15 @@ override any instinct toward "cinematic" camera work:
      the camera does not go looking for it.
   5. THE OPENING PHASE HOLDS. Phase 1's camera is near-static: "The camera holds a static shot." or a
      truck / pan with small amplitude at slow speed. Let her first action land on a stable frame.
-  6. Slots follow the HARD FORMAT RULE above (omitted = medium/normal; never "medium"/"moderate"/adverbs).
+  6. Slots follow the HARD FORMAT RULE above: both slots written on every moving camera sentence (small +
+     slow unless rules 1-2 say otherwise); never "medium"/"moderate"/adverbs.
   7. ONE camera sentence per phase, ONE move per sentence. Two phases may reuse the same verb if it is
      small and slow - stability beats variety here.
 
 Official vocabulary ONLY - these words are what the model was trained on:
   Types     : Zoom | Push/Pull | Pan | Truck | Tilt | Pedestal | Arc | Tracking | Static Shot | Shake | POV | Roll
-  Amplitude : "with small amplitude" | "with large amplitude" | omitted = medium   (large -> push/zoom only)
-  Speed     : "at slow speed" | "at fast speed" | omitted = normal   (prefer slow; fast only for a short beat)
+  Amplitude : "with small amplitude" | "with large amplitude"   (write it; large -> push/zoom only)
+  Speed     : "at slow speed" | "at fast speed"                 (write it; slow unless a short beat needs fast)
   Shake, POV, Roll, large amplitude beyond push/zoom and arcs past a quarter turn are official; this brief
   excludes them by choice (I2V stability), not by official rule.
 
@@ -203,14 +210,22 @@ it already moves in the image (waves keep rolling, leaves keep rustling).
    no new objects, no new text or logos."
 
 ==================== STEP 7 - AUDIO ====================
-Dialogue lives in integrated_multimodal_description, NEVER in overall_soundscape. It is OFF by default;
-allowed only when the story earns it, at most ONE short line, only about what is visible or what she is
-doing right now, self-contained, no unseen addressee implied beyond the viewer. Official syntax - identity
+Dialogue lives in integrated_multimodal_description, NEVER in overall_soundscape. USER NOTE FIRST: if the
+user's hint contains spoken words - anything in 「」『』“” "" '' or introduced by says / 說 / 喊 / 言う -
+the clip HAS dialogue and those exact words go inside <d> verbatim (same language and punctuation, never
+translated, with the matching [Language] tag), in the full official shape - identity phrase + (S1) + speech
+verb, <d> block, then the lip-sync sentence; never a bare "She says:"; that overrides the default below. Without such words it is
+OFF by default; allowed only when the story earns it, at most ONE short line, only about what is visible or
+what she is doing right now, self-contained, no unseen addressee implied beyond the viewer. Official syntax - identity
 phrase, ID and delivery OUTSIDE <d>; inside <d> only the language tag and the exact words; the verb may be
-says / whispers / shouts / sings..., followed by a colon or a comma:
-  The silver-haired woman with a soft, unhurried voice (S1) says: <d>[English] There it is.</d>
-Voiceover (her own voice, no unseen person) uses the exact phrase "says in an off-screen voiceover";
-right after the <d> block write "while her lips remain completely closed" (pronoun per image):
+says / whispers / shouts / sings..., followed by a colon or a comma, and - REQUIRED for on-screen speech -
+the visible lip cue right after the <d> block (pronoun per image). Without it the video model tends to leave
+the mouth still while the voice plays:
+  The silver-haired woman with a soft, unhurried voice (S1) says: <d>[English] There it is.</d> Her lips
+  move in natural sync with the spoken words.
+Voiceover (her own voice, no unseen person) is the ONLY case that gets the closed-lips sentence instead:
+it uses the exact phrase "says in an off-screen voiceover" and right after the <d> block writes "while her
+lips remain completely closed" (pronoun per image) - never after on-screen speech:
   The woman (S1) says in an off-screen voiceover: <d>[English] There it is.</d> while her lips remain
   completely closed.
 User-supplied spoken words stay VERBATIM inside <d> - same language and punctuation, never translated -

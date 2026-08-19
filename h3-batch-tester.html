@@ -1169,6 +1169,8 @@ function validate(c, target, wantShots){
     if (amp && !/^(small|large)$/.test(amp)) W.push(`amplitude 只有 small/large（官方），不用「${amp}」— 中間值直接省略`);
     if (spd && !/^(slow|fast)$/.test(spd)) W.push(`speed 只有 slow/fast（官方），不用「${spd}」— 中間值直接省略`);
     if (fam) moves.push(fam); pairs.push((amp||"-")+"/"+(spd||"-"));
+    /* I2V: an unstated speed renders at normal speed, which smears; the official examples all state it */
+    if (fam && fam !== "static" && !spd) W.push(`運鏡句沒寫速度（「${cs.slice(0,50)}」）— 省略＝normal，I2V 建議寫 at slow speed`);
     /* I2V-safety: large amplitude only where it does not force new scenery */
     if (amp==="large" && fam && !["push","zoom","static"].includes(fam)) W.push(`large amplitude 配 ${fam} 容易糊（首幀外要重畫）— 建議 small，或改 push in`);
   });
@@ -1202,7 +1204,7 @@ function validate(c, target, wantShots){
   const D_RE = /<d>((?:[^<]|<scenetrans>|<cutoff>)*)<\/d>/g;
   const dBlocks = [...c.matchAll(D_RE)];
   const dAll = dBlocks.length;
-  let noId = 0, noLang = 0, stage = 0, voMissingPhrase = 0, voMissingLips = 0, onLips = 0;
+  let noId = 0, noLang = 0, stage = 0, voMissingPhrase = 0, voMissingLips = 0, onLips = 0, noSync = 0;
   const dl = [];
   dBlocks.forEach(m => {
     const inner = m[1];
@@ -1226,16 +1228,20 @@ function validate(c, target, wantShots){
     const voIntent = /voice-?over|off-?screen (?:voice|narration|line)|narrat(?:es|ion|ing)|\bV\.O\.|inner (?:voice|monologue)/i.test(lead);
     const voExact = /says in an off-screen voiceover/.test(lead);
     const lips = /lips remain (?:completely )?closed/i.test(tail);
+    const sync = /lips move (?:in )?(?:natural )?sync|lips? (?:moves?|moving) (?:in|with)|mouth (?:moves|moving|forms? the words)|in (?:natural )?sync with the spoken/i.test(tail);
     if (voIntent && !voExact) voMissingPhrase++;
     if ((voIntent || voExact) && !lips) voMissingLips++;
     if (!voIntent && !voExact && lips) onLips++;
+    if (!voIntent && !voExact && !lips && !sync && !/<scenetrans>/.test(inner)) noSync++;   // a split line gets its cue once
   });
   if (noId) E.push(`${noId} 句對白沒有說話者 ID — 每句 <d> 前同一句內要有身分描述 + (S1)（官方 §4.4）`);
   if (noLang) E.push(`${noLang} 句 <d> 內沒有以 [語言] 標籤開頭（官方：<d>[English] …</d>）`);
   if (stage) W.push("<d> 內只放語言標籤＋台詞本身，語氣/動作寫在 <d> 外（官方 §4.4）");
   if (voMissingPhrase) E.push("旁白必須用官方固定短語「says in an off-screen voiceover」（官方 §4.4）");
   if (voMissingLips) E.push("旁白 <d> 之後必須接「lips remain completely closed」句（官方 §4.4）");
-  if (onLips) W.push("非旁白的台詞卻寫「lips remain completely closed」— 只有 off-screen voiceover 才接這句（官方 §4.4）");
+  if (onLips) E.push("非旁白的台詞卻寫「lips remain completely closed」— 嘴會閉著不動；只有 off-screen voiceover 才接這句（官方 §4.4）");
+  /* project rule (empirical): without an explicit lip-sync cue H3 tends to leave the mouth still while the voice plays */
+  if (noSync) E.push(`${noSync} 句螢幕內台詞後面沒有「lips move in natural sync with the spoken words」— 沒有這句嘴巴不會動`);
   if (/\(S\d+\)\s*\(S\d+\)/.test(c)) W.push("說話者 ID 重複寫了兩次（(S1) (S1)）");
   /* <scenetrans>: must appear in both halves of a line that crosses a cut, with an explicit continuity phrase */
   const stN = (c.match(/<scenetrans>/g) || []).length;
@@ -1245,6 +1251,15 @@ function validate(c, target, wantShots){
   if (!dAll && /\(S\d+(?:,S\d+)*\)/.test(body)) W.push("有 (S1) 說話者 ID 但沒有任何 <d> 台詞（官方：不出聲的人物不給 ID）");
   if (/<d>/.test(snd)) W.push("對白應寫在 integrated_multimodal_description，overall_soundscape 不重複（官方 §4.6）");
   if (/\[(?:English|Japanese|Chinese|Korean)\]/.test(c) && !dAll) W.push("有語言標籤但沒有 <d> 對白");
+  /* the user's note (補充劇情) asked for spoken words -> they must be in the output */
+  { const note = (typeof LORA_NOTE === "string") ? LORA_NOTE : "";
+    const q = [...note.matchAll(/[「『“"]([^」』”"]{1,80})[」』”"]/g)].map(m => m[1].trim()).filter(Boolean);
+    if (q.length && !dAll) E.push("補充劇情裡有台詞（" + q[0].slice(0, 20) + "…）但輸出沒有任何 <d> 對白");
+    else if (q.length){
+      const inner = dBlocks.map(m => m[1]).join("\n");
+      const miss = q.filter(t => !inner.includes(t));
+      if (miss.length) W.push("補充劇情的台詞沒有逐字出現在 <d> 裡（官方：使用者給的台詞逐字保留、不翻譯）：" + miss[0].slice(0, 20));
+    } }
 
   /* ---------- 8. soundscape / music (guide §4.6–4.7) ---------- */
   const sndNA = /^N\/A\.?$/i.test(snd.trim());
@@ -1426,6 +1441,15 @@ function repair(c){
     const m = body.match(/^(\s*(?:For the target video[^\n]*\n\s*)?)/);   // keep an in-field alignment line first
     body = m[1] + "[Shot 1] " + body.slice(m[1].length);
   }
+  /* speaker ID dropped before a spoken line ("She says: <d>…") — the most frequent slip once the user supplies
+     the words. Only when there is a single speaker in the whole description (no (S2)…) and the line has an
+     explicit speech verb right before <d>; anything else is left for validate() to reject. */
+  { const ids = new Set([...body.matchAll(/\(S(\d+)(?:,S\d+)*\)/g)].map(m => m[1]));
+    if (ids.size <= 1 && !/\(S\d+,S\d+\)/.test(body)){
+      const VERB = "(?:says|said|shouts|whispers|sings|calls out|replies|asks|murmurs|exclaims|adds|mutters|cries out|answers|yells|laughs|gasps|breathes|announces|declares|continues)";
+      const re = new RegExp("((?:^|[.!?]\\s+|\\]\\s+)(?:[^.!?<]|<Picture \\d>)*?)\\b(" + VERB + ")(\\s*[:,]\\s*<d>)", "g");
+      body = body.replace(re, (all, lead, verb, tail) => /\(S\d+/.test(lead) ? all : lead + "(S1) " + verb + tail);
+    } }
   return head + body;
 }
 async function genOnce(imgUrl, utext, target, wantShots){

@@ -86,6 +86,12 @@ CAMERA SENTENCE — EVERY shot contains exactly one camera sentence,
     SPEED: "at slow speed" | "at fast speed".
       OMIT the phrase entirely for normal speed — "moderate" is never
       written; omission IS normal.
+    DEFAULT FOR THIS MODE: every moving-camera sentence writes BOTH
+      phrases — "with small amplitude at slow speed" — unless a beat
+      truly needs "at fast speed" or a push in / zoom in earns "with
+      large amplitude". Omission is official, but an unstated speed
+      renders at normal speed, and normal speed is where image-to-video
+      smears; slowness is meaningful here, so state it.
     When both phrases appear, amplitude comes before speed.
     I2V SAFETY (this mode's own restriction on top of the official
       vocabulary, not the official rule): "with large amplitude" is
@@ -109,8 +115,9 @@ CAMERA VARIETY — enforced across the whole clip:
     - at least one shot uses an explicit amplitude phrase (small — or
       large, but large only on pushes in / zooms in)
     - the same MOTION may not appear twice
-    - the same amplitude+speed combination may not appear twice
-      (count omitted phrases as their own value)
+    - vary the MOTION, not the pace: "with small amplitude at slow
+      speed" may repeat on every moving shot — that is the default for
+      this mode, and repeating it is not a fault
     - "holds a static shot" at most once, and only when the subject's
       own motion already fills the frame
 
@@ -510,8 +517,20 @@ Director node injects it (unless the user asked for a "full prompt").
 
 # DIALOGUE — decided from the image, never by habit
 
-Do not decide this by preference. Look at the frame and check for
-evidence. If ANY of the following is visible, the clip HAS dialogue:
+USER NOTE FIRST. If the user's note contains spoken words — anything in
+quotation marks 「」『』“” "" '' or introduced by says / 說 / 喊 / 言う
+and the like — the clip HAS dialogue, and those exact words go inside
+<d> verbatim (same language, same punctuation, never translated; add
+the matching [Language] tag). This overrides everything below,
+including the evidence test and any "no dialogue" default. Only when
+the note gives no spoken words do you decide from the frame. The line
+still takes the full official shape — identity phrase + (S1) + speech
+verb, then the <d> block, then the lip-sync sentence; a bare "She
+says:" or a quoted line floating on its own is wrong:
+  The woman in the pink swimsuit (S1) says: <d>[Japanese] 見ててね！</d> Her lips move in natural sync with the spoken words.
+
+Otherwise do not decide this by preference. Look at the frame and check
+for evidence. If ANY of the following is visible, the clip HAS dialogue:
 
   - the mouth is open in a speech shape, or mid-word
   - the subject is addressing someone: pointing, waving, hand raised in
@@ -546,13 +565,23 @@ comma:
   The wiry man in the grey hoodie with a low, clipped voice (S1) says: <d>[English] Get back.</d>
   The two children (S1,S2) shout together, <d>[English] Wait for us!</d>
 
-For a speaker whose face is on screen, you may add in the same shot:
+LIP SYNC — REQUIRED. Every on-screen spoken line is followed, in the
+same shot, right after its <d> block, by the visible cue (pronoun per
+image):
   Her lips move in natural sync with the spoken words.
+Without this sentence the video model tends to leave the mouth still
+while the voice plays. It is a visible detail, so it belongs in the
+description. The children example above therefore continues:
+  The two children (S1,S2) shout together, <d>[English] Wait for us!</d> Their lips move in natural sync with the spoken words.
 
-For an off-screen or unseen speaker, use the official voiceover form —
-the exact phrase "says in an off-screen voiceover", and immediately
-after the <d> block state the closed lips:
+For an off-screen or unseen speaker ONLY, use the official voiceover
+form — the exact phrase "says in an off-screen voiceover", and
+immediately after the <d> block state the closed lips:
   The man (S1) says in an off-screen voiceover: <d>[English] I told you.</d> while his lips remain completely closed.
+Never put the closed-lips sentence after on-screen speech — that tells
+the model to keep the mouth shut while the voice plays. On-screen =
+lip-sync sentence; voiceover = closed-lips sentence; never both, never
+neither.
 
 Speakers keep stable IDs across the clip: (S1), (S2); joint lines use a
 compound ID such as (S1,S2).
@@ -704,9 +733,10 @@ integrated_multimodal_description: [Shot 1] <medium declaration>,
 <initial framing / composition>, <identity tag + "shown in <Picture 1>">
 <the trigger and first action, responding to it>. <if STEP 1 item (g)
 was YES: the dialogue in the official identity-phrase + (S1) + speech
-verb + colon or comma: <d>[Language] ...</d> form, plus the closed-lips
-sentence only if it is an off-screen voiceover — otherwise nothing at
-all here>. <camera sentence per CAMERA SENTENCE>. [Shot 2]
+verb + colon or comma: <d>[Language] ...</d> form, followed by "Her/His
+lips move in natural sync with the spoken words." — or, ONLY for an
+off-screen voiceover, by the closed-lips sentence instead — otherwise
+nothing at all here>. <camera sentence per CAMERA SENTENCE>. [Shot 2]
 At MM:SS.mmm, the camera cuts to <new framing> in the same <medium>.
 <identity tag, word for word>. <next action, caused by the previous>.
 <camera sentence>. [Shot 3] At MM:SS.mmm, the shot transitions to <new
@@ -753,8 +783,8 @@ overall_soundscape and non_diegetic_music follow exactly as above.
   medium amplitude" or "at moderate speed" ("medium" may still appear
   in the Shot 1 framing phrase, e.g. "a medium-wide shot").
 
-- No two shots share a MOTION, and no two share an amplitude+speed
-  combination. At least one shot carries an explicit amplitude phrase.
+- No two shots share a MOTION. Small + slow may repeat on every moving
+  shot; at least one shot carries an explicit amplitude phrase.
 
 - Shot 1 opens on the change, not on the scene: style declaration,
   initial framing, identity tag, then the change. No "stands", no
@@ -792,11 +822,12 @@ overall_soundscape and non_diegetic_music follow exactly as above.
 
 - A dialogue line always carries the speaker's identifying phrase, the
   (S#) ID, and a natural speech verb (says / shouts / whispers / sings
-  / calls out) with a colon or comma before the <d> block. An
-  off-screen line uses exactly "says in an off-screen voiceover" and is
-  immediately followed by the closed-lips statement. Never paraphrase
-  these; "her lips part", "she mouths the words" are wrong, and the
-  first is banned.
+  / calls out) with a colon or comma before the <d> block, and — for
+  on-screen speech — "Her/His lips move in natural sync with the spoken
+  words." right after the <d> block. An off-screen line uses exactly
+  "says in an off-screen voiceover" and is immediately followed by the
+  closed-lips statement instead. Never paraphrase these; "her lips
+  part", "she mouths the words" are wrong, and the first is banned.
 
 - The bracket and the words must be the same language. [Japanese] means
   the line is written in kana/kanji. English words inside a [Japanese]
