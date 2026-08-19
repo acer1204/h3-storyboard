@@ -28,7 +28,9 @@ H3 Prompt 批次產生器 - 本機服務
   DELETE /api/prompts/<id>      -> 刪除
 
   GET    /api/uploads           -> 上傳過的原圖清單（以內容 hash 去重）
-  GET    /api/uploads/<hash>.jpg        -> 原圖
+  GET    /api/uploads/<hash>.jpg        -> 1024px 工作副本
+  GET    /api/uploads/<hash>.orig.<ext> -> 全解析度原圖（送 ComfyUI 用）
+  GET    /api/orig/<id>.<ext>           -> 歷史紀錄的全解析度原圖
   GET    /api/uploads/<hash>.thumb.jpg  -> 縮圖
   DELETE /api/uploads/<hash>              -> 只從上傳庫移除（歷史保留、upload_id 保留；同圖再上傳會自動歸位）
   DELETE /api/uploads/<hash>?cascade=1    -> 連同所有引用它的歷史紀錄一起刪
@@ -244,8 +246,35 @@ def _img_dims(blob):
     return 0, 0
 
 
-def upload_register(full_bytes, thumb_bytes, name):
-    """Store an image in the uploads library (idempotent by content hash). Returns the hash."""
+ORIG_EXTS = ("jpg", "png", "webp")
+
+
+def orig_path(folder, stem):
+    """Full-resolution original next to a 1024px working copy: <stem>.orig.<ext>. Returns (path, ext) or (None, "")."""
+    for ext in ORIG_EXTS:
+        fp = os.path.join(folder, stem + ".orig." + ext)
+        if os.path.exists(fp):
+            return fp, ext
+    return None, ""
+
+
+def parse_data_image(data):
+    """'data:image/png;base64,...' -> (bytes, ext) ; (None, '') if not an image data URL."""
+    if not isinstance(data, str) or not data.startswith("data:image"):
+        return None, ""
+    try:
+        head, b64 = data.split(",", 1)
+        blob = base64.b64decode(b64)
+    except Exception:
+        return None, ""
+    mime = head[5:].split(";", 1)[0].lower()
+    ext = {"image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp"}.get(mime, "jpg")
+    return blob, ext
+
+
+def upload_register(full_bytes, thumb_bytes, name, orig_bytes=b"", orig_ext=""):
+    """Store an image in the uploads library (idempotent by content hash of the 1024px copy). Returns the hash.
+    orig_bytes = the full-resolution original (what ComfyUI should receive); stored once per hash."""
     h = hashlib.sha1(full_bytes).hexdigest()
     fp = os.path.join(UPLOADS, h + ".jpg")
     with LOCK:
@@ -258,16 +287,33 @@ def upload_register(full_bytes, thumb_bytes, name):
         if thumb_bytes and not os.path.exists(tp):
             with open(tp, "wb") as f:
                 f.write(thumb_bytes)
+        oext = ""
+        if orig_bytes and orig_ext in ORIG_EXTS:
+            op = os.path.join(UPLOADS, h + ".orig." + orig_ext)
+            if not os.path.exists(op) and orig_path(UPLOADS, h)[0] is None:
+                with open(op, "wb") as f:
+                    f.write(orig_bytes)
+            oext = orig_path(UPLOADS, h)[1]
         if hit is None:
             w, hgt = _img_dims(full_bytes)
-            rows.insert(0, {"id": h, "name": (name or "")[:200], "w": w, "h": hgt,
-                            "size": len(full_bytes), "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
-                            "thumb": os.path.exists(tp)})
+            row = {"id": h, "name": (name or "")[:200], "w": w, "h": hgt,
+                   "size": len(full_bytes), "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                   "thumb": os.path.exists(tp)}
+            if oext:
+                ow, oh = _img_dims(orig_bytes) if orig_bytes else (0, 0)
+                row.update({"orig_ext": oext, "ow": ow, "oh": oh, "osize": len(orig_bytes)})
+            rows.insert(0, row)
             save_uindex(rows)
         else:
+            changed = False
             # keep the first-seen name, but remember any others for search
             if name and name not in (hit.get("names") or []) and name != hit.get("name"):
-                hit.setdefault("names", []).append(name[:200])
+                hit.setdefault("names", []).append(name[:200]); changed = True
+            # an original arriving later for an image we only had at 1024px
+            if oext and not hit.get("orig_ext"):
+                ow, oh = _img_dims(orig_bytes) if orig_bytes else (0, 0)
+                hit.update({"orig_ext": oext, "ow": ow, "oh": oh, "osize": len(orig_bytes)}); changed = True
+            if changed:
                 save_uindex(rows)
     return h
 
@@ -416,8 +462,8 @@ def comfy_capture_template():
     return {"prompt_id": pid, "nodes": len(g), "output": out}
 
 
-def comfy_build(imd, soundscape, music, image_name):
-    """載模板，只換圖與三欄位，其餘照舊；種子隨機化避免重複送出被去重。
+def comfy_build(imd, soundscape, music, image_name, duration=None):
+    """載模板，只換圖與三欄位（＋影片秒數），其餘照舊；種子隨機化避免重複送出被去重。
     extra_data（UI 工作流）同步替換相同欄位——save_metadata 嵌進影片的是它。"""
     import random
     with open(COMFY_TEMPLATE, encoding="utf-8") as f:
@@ -427,9 +473,10 @@ def comfy_build(imd, soundscape, music, image_name):
     else:                                  # 舊格式：檔案就是節點圖
         g, extra = tpl, {}
     director = None
+    director_id = None
     for nid, node in g.items():
         if node.get("class_type") == "MiniMaxH3Director":
-            director = node
+            director, director_id = node, nid
     if director is None:
         raise ValueError("模板裡沒有 MiniMaxH3Director 節點")
 
@@ -457,6 +504,17 @@ def comfy_build(imd, soundscape, music, image_name):
     if not done:
         raise ValueError("模板的 timeline 裡沒有圖片項目")
 
+    # 影片秒數：網頁寫 prompt 時用的時長要跟 Director 跑的一致（時間戳才不會超出）
+    old_dur = ins.get("duration")
+    new_dur = None
+    try:
+        d = int(duration) if duration is not None else None
+        if d is not None and 1 <= d <= 30 and isinstance(old_dur, int) and d != old_dur:
+            ins["duration"] = d
+            new_dur = d
+    except (TypeError, ValueError):
+        pass
+
     swaps = {old_bs_str: ins["builder_state"], old_tl_str: ins["timeline_data"]}
     for nid, node in g.items():
         for k, v in list(node.get("inputs", {}).items()):
@@ -473,6 +531,12 @@ def comfy_build(imd, soundscape, music, image_name):
             for i, v in enumerate(wv):
                 if isinstance(v, (str, int)) and v in swaps:
                     wv[i] = swaps[v]
+            # duration only on the Director's own UI node (a bare int would collide elsewhere)
+            if new_dur is not None and n.get("type") == "MiniMaxH3Director" and str(n.get("id")) == str(director_id):
+                for i, v in enumerate(wv):
+                    if v == old_dur and isinstance(v, int):
+                        wv[i] = new_dur
+                        break
     extra = dict(extra)
     extra["client_id"] = "h3-webui"
     return g, extra
@@ -619,6 +683,21 @@ class H(SimpleHTTPRequestHandler):
             with open(fp, encoding="utf-8") as f:
                 return self.send_json(json.load(f))
 
+        m = re.match(r"^/api/orig/([^/]+)\.(jpg|png|webp)$", p)
+        if m:
+            rid, ext = unquote(m.group(1)), m.group(2)
+            fp = os.path.join(HIST, rid + ".orig." + ext) if ID_RE.match(rid) else None
+            if not fp or not os.path.exists(fp):
+                return self.send_json({"error": "not found"}, 404)
+            b = open(fp, "rb").read()
+            self.send_response(200)
+            self.send_header("Content-Type", {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[ext])
+            self.send_header("Content-Length", str(len(b)))
+            self.send_header("Cache-Control", "max-age=86400")
+            self.end_headers()
+            self.wfile.write(b)
+            return
+
         m = re.match(r"^/api/(thumb|full)/([^/]+)\.jpg$", p)
         if m:
             kind, rid = m.group(1), unquote(m.group(2))
@@ -716,6 +795,22 @@ class H(SimpleHTTPRequestHandler):
         if m:
             return self.send_json(upload_history_ids(m.group(1)))
 
+        m = re.match(r"^/api/uploads/([0-9a-f]{40})\.orig\.(jpg|png|webp)$", p)
+        if m:
+            h, ext = m.group(1), m.group(2)
+            fp = os.path.join(UPLOADS, h + ".orig." + ext)
+            if not os.path.exists(fp):
+                return self.send_json({"error": "not found"}, 404)
+            with open(fp, "rb") as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[ext])
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         m = re.match(r"^/api/uploads/([0-9a-f]{40})(\.thumb)?\.jpg$", p)
         if m:
             h, is_thumb = m.group(1), bool(m.group(2))
@@ -807,27 +902,33 @@ class H(SimpleHTTPRequestHandler):
                         return self.send_json({"error": "沒有模板：先在 ComfyUI 成功跑一次工作流"}, 400)
                 except Exception as e:
                     return self.send_json({"error": "ComfyUI 連不上: %s" % e}, 502)
-            # 圖片來源：歷史紀錄 id 或 dataURL
-            blob = None
+            # 圖片來源：歷史紀錄 id（優先原圖 .orig.*，沒有才用 1024 工作副本）或 dataURL
+            blob, ext = None, "jpg"
             rid = str(body.get("rec_id") or "")
             if rid and ID_RE.match(rid):
-                fp = os.path.join(HIST, rid + ".full.jpg")
-                if os.path.exists(fp):
-                    blob = open(fp, "rb").read()
+                op, oext = orig_path(HIST, rid)
+                if op:
+                    blob, ext = open(op, "rb").read(), oext
+                else:
+                    fp = os.path.join(HIST, rid + ".full.jpg")
+                    if os.path.exists(fp):
+                        blob = open(fp, "rb").read()
             if blob is None:
-                img = str(body.get("image") or "")
-                if img.startswith("data:image"):
-                    try:
-                        blob = base64.b64decode(img.split(",", 1)[1])
-                    except Exception:
-                        pass
+                blob, ext2 = parse_data_image(body.get("image"))
+                if blob is not None:
+                    ext = ext2
             if blob is None:
                 return self.send_json({"error": "沒有可用的圖片（rec_id 找不到原圖，也沒帶 image）"}, 400)
-            name = "h3webui_%s.jpg" % new_id()
+            # 影片秒數："15 seconds" / "15" / 15 -> 15
+            dur = None
+            md = re.search(r"\d+", str(body.get("dur") or ""))
+            if md:
+                dur = int(md.group(0))
+            name = "h3webui_%s.%s" % (new_id(), ext)
             try:
                 up = comfy_upload(name, blob)
                 graph, extra = comfy_build(str(body.get("imd", "")), str(body.get("soundscape", "")),
-                                           str(body.get("music", "")), up.get("name", name))
+                                           str(body.get("music", "")), up.get("name", name), dur)
                 payload = {"prompt": graph, "client_id": "h3-webui"}
                 if extra:
                     payload["extra_data"] = extra
@@ -922,11 +1023,36 @@ class H(SimpleHTTPRequestHandler):
                     f.write(blob)
             except Exception:
                 pass
+        # full-resolution original for ComfyUI: sent inline ("orig" data URL) or copied from another
+        # record ("orig_from": re-runs) / from the upload library ("orig_upload": imports)
+        orig_bytes, orig_ext = parse_data_image(body.pop("orig", "") or "")
+        if orig_bytes is None:
+            src = None
+            of = str(body.pop("orig_from", "") or "")
+            ou = str(body.pop("orig_upload", "") or "")
+            if of and ID_RE.match(of):
+                src = orig_path(HIST, of)
+            elif ou and re.match(r"^[0-9a-f]{40}$", ou):
+                src = orig_path(UPLOADS, ou)
+            if src and src[0]:
+                try:
+                    orig_bytes, orig_ext = open(src[0], "rb").read(), src[1]
+                except OSError:
+                    orig_bytes, orig_ext = None, ""
+        if orig_bytes and orig_ext in ORIG_EXTS:
+            try:
+                with open(os.path.join(HIST, rid + ".orig." + orig_ext), "wb") as f:
+                    f.write(orig_bytes)
+            except Exception:
+                orig_bytes, orig_ext = None, ""
+        else:
+            orig_bytes, orig_ext = None, ""
         # link the record to the upload library (idempotent by content hash)
         upload_id = ""
         if img_bytes.get("full"):
             try:
-                upload_id = upload_register(img_bytes["full"], img_bytes.get("thumb", b""), str(body.get("image", "")))
+                upload_id = upload_register(img_bytes["full"], img_bytes.get("thumb", b""), str(body.get("image", "")),
+                                            orig_bytes or b"", orig_ext)
             except Exception:
                 upload_id = ""
 
@@ -954,6 +1080,7 @@ class H(SimpleHTTPRequestHandler):
             # lora = {preset_id, preset_name, main, subs:[{key,gloss}], forced:[...], report:{...}}  (full snapshot)
             "lora": (body.get("lora") if isinstance(body.get("lora"), dict) else None),
             "upload_id": upload_id,
+            "orig_ext": orig_ext,          # "" = only the 1024px working copy exists
         }
         with LOCK:
             with open(os.path.join(HIST, rid + ".json"), "w", encoding="utf-8") as f:
@@ -963,6 +1090,7 @@ class H(SimpleHTTPRequestHandler):
                             ("id", "ts", "image", "dur", "state", "elapsed_s", "mode", "upload_id")}
                         | {"nerr": len(rec["errors"]), "nwarn": len(rec["warnings"]),
                            "full": os.path.exists(os.path.join(HIST, rid + ".full.jpg")),
+                           "orig_ext": orig_ext,
                            "lora": ((rec["lora"] or {}).get("preset_name") or "") if rec["lora"] else "",
                            "prompt": rec["prompt_name"]})
             save_index(rows)
@@ -991,7 +1119,7 @@ class H(SimpleHTTPRequestHandler):
                     rows = load_index()
                     victims = [r["id"] for r in rows if r.get("upload_id") == h]
                     for rid in victims:
-                        for ext in (".json", ".jpg", ".full.jpg"):
+                        for ext in (".json", ".jpg", ".full.jpg", ".orig.jpg", ".orig.png", ".orig.webp"):
                             try: os.remove(os.path.join(HIST, rid + ext))
                             except OSError: pass
                     if victims:
@@ -999,7 +1127,7 @@ class H(SimpleHTTPRequestHandler):
                 # else: unlink only. History records keep their own image copy AND their upload_id, so they
                 # still display / re-run fine, and if the same image is uploaded again (same content hash)
                 # they re-attach to the new library entry automatically.
-                for ext in (".jpg", ".thumb.jpg"):
+                for ext in (".jpg", ".thumb.jpg", ".orig.jpg", ".orig.png", ".orig.webp"):
                     try: os.remove(os.path.join(UPLOADS, h + ext))
                     except OSError: pass
                 save_uindex([r for r in load_uindex() if r.get("id") != h])
@@ -1034,7 +1162,7 @@ class H(SimpleHTTPRequestHandler):
         if not ID_RE.match(rid):
             return self.send_json({"error": "bad id"}, 400)
         with LOCK:
-            for ext in (".json", ".jpg", ".full.jpg"):
+            for ext in (".json", ".jpg", ".full.jpg", ".orig.jpg", ".orig.png", ".orig.webp"):
                 try: os.remove(os.path.join(HIST, rid + ext))
                 except OSError: pass
             save_index([r for r in load_index() if r.get("id") != rid])

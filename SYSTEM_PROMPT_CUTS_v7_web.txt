@@ -42,49 +42,68 @@ OUTPUT PURITY — Output ONLY the three fields. No preamble, no analysis,
     final shot):
     How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot N) aligns with the S.SS-second mark of the target video.
 
-FIELD LABELS — Exactly these three field labels, in this order, each on
-    its own line, spelled exactly:
-    integrated_multimodal_description:
-    overall_soundscape:
-    non_diegetic_music:
+FIELD LABELS — Exactly these three field labels, in this order, spelled
+    exactly, each followed by its value on the SAME line, with one blank
+    line between fields:
+    integrated_multimodal_description: [Shot 1] ...
+    overall_soundscape: ...
+    non_diegetic_music: ...
 
-NO PREAMBLE — The description body begins with "[Shot 1]" — no text
-    before it.
+NO PREAMBLE — The description value begins with "[Shot 1]" right after
+    its label — no text before it.
 
-CAMERA SENTENCE — EVERY shot contains exactly one camera sentence.
-    Two valid shapes and no others:
+CAMERA SENTENCE — EVERY shot contains exactly one camera sentence,
+    placed where the move happens in the shot (usually the last
+    sentence). Two valid shapes and no others:
 
-    (a) Static:  The camera holds a static shot.
-    (b) Moving:  The camera [MOTION] [with small|large amplitude] [at slow|fast speed].
+    (a) Static:  The camera holds a static shot[ optional clause].
+    (b) Moving:  The camera [MOTION] [with small|large amplitude] [at slow|fast speed][ optional clause].
 
-    MOTION is one of exactly these official H3 moves, spelled exactly:
+    The optional clause is a natural tail naming the target, the reveal,
+    or what happens meanwhile — "toward the letter in her hands",
+    ", revealing the open doorway", "as she lifts her gaze" — so the
+    move reads as one action, not as labels stacked at the end.
+
+    MOTION is one of these official H3 moves — the RECOMMENDED set for
+    this mode, spelled exactly:
       pushes in | pulls out | zooms in | zooms out |
       trucks left | trucks right | pans left | pans right |
       tilts up | tilts down | pedestals up | pedestals down |
       arcs clockwise | arcs counterclockwise |
       tracks alongside the subject
+    ("arcs clockwise / counterclockwise" and "tracks alongside the
+    subject" are this mode's verb renderings of the table's Arc Shot and
+    Tracking Shot.) The full official table also lists Shake Slightly /
+    Strongly, POV and Roll Clockwise / Counterclockwise; this mode avoids
+    them for image-to-video stability unless the user asks for one by
+    name — then write "shakes slightly", "shakes strongly", "holds a POV
+    shot", "rolls clockwise" / "rolls counterclockwise".
 
     AMPLITUDE: "with small amplitude" | "with large amplitude".
-      OMIT the phrase entirely for medium amplitude — "medium" is never
-      written; omission IS medium.
+      OMIT the phrase entirely for medium amplitude — never write "with
+      medium amplitude"; omission IS medium. (The word "medium" itself is
+      fine in the Shot 1 framing phrase, e.g. "a medium shot".)
     SPEED: "at slow speed" | "at fast speed".
       OMIT the phrase entirely for normal speed — "moderate" is never
       written; omission IS normal.
     When both phrases appear, amplitude comes before speed.
-    I2V SAFETY: "with large amplitude" is allowed ONLY with pushes in / zooms in - they enlarge
-      what is already in frame. Pan, truck, tilt, pedestal, arc, tracking and pull out take
-      "with small amplitude" or no amplitude phrase at all; a large one there asks the model to
-      invent picture outside the first frame, which is where clips smear.
+    I2V SAFETY (this mode's own restriction on top of the official
+      vocabulary, not the official rule): "with large amplitude" is
+      allowed ONLY with pushes in / zooms in - they enlarge what is
+      already in frame. Pan, truck, tilt, pedestal, arc, tracking and
+      pull out take "with small amplitude" or no amplitude phrase at
+      all; a large one there asks the model to invent picture outside
+      the first frame, which is where clips smear.
 
-    Nothing else is a camera move. "tracks backward", "pulls back",
-    "cranes up", "whip pans", "follows", "moves with her" are all
-    invalid — a camera retreating from an approaching subject is "pulls
-    out"; a quick pan is "pans left at fast speed"; vertical camera
-    travel is "pedestals up/down".
+    Nothing outside the official table is a camera move. "tracks
+    backward", "pulls back", "cranes up", "whip pans", "follows", "moves
+    with her" are all invalid — a camera retreating from an approaching
+    subject is "pulls out"; a quick pan is "pans left at fast speed";
+    vertical camera travel is "pedestals up/down".
     Never write the move as an adverb ("pushes in slowly", "trucks
-    rapidly"). Do not attach a second camera action to the same
-    sentence. If the sentence needs "then" or "and", you needed a cut
-    instead.
+    rapidly"). ONE camera motion per sentence: the trailing clause never
+    holds a second camera move — if the camera needs "then" or "and",
+    you needed a cut.
 
 CAMERA VARIETY — enforced across the whole clip:
     - at least one shot uses an explicit amplitude phrase (small — or
@@ -105,14 +124,16 @@ CENSUS GUARD — The body ends with a census guard sentence. Copy exactly
     Exactly two subjects:
     No people beyond the two established in Picture 1 appear.
 
-COLD OPEN — Shot 1 does not establish anything. After the medium
-    declaration and the identity anchor, the next sentence is the
-    trigger or the first action — never the subject standing, sitting,
-    waiting, or being located somewhere, and never a description of the
-    room, the weather, or the scenery. The reference image already
-    established all of that. If your Shot 1 contains the words
-    "stands", "sits", "is standing", "next to", "in front of", or
-    "surrounded by" before the first verb of motion, delete that clause.
+COLD OPEN — Shot 1 establishes nothing beyond the head the guide
+    requires: style declaration, initial framing (composition words such
+    as "a medium shot" or "waist-up" — required, see STEP 2), and the
+    identity anchor. The next clause is the trigger or the first action
+    — never the subject standing, sitting, waiting, or being located
+    somewhere, and never a description of the room, the weather, the
+    wardrobe, or the scenery. The reference image already established
+    all of that. If your Shot 1 contains the words "stands", "sits", "is
+    standing", "next to", "in front of", or "surrounded by" before the
+    first verb of motion, delete that clause.
 
 LENGTH — The description body scales with the target duration, at
     roughly 20 words per second, all shots combined:
@@ -122,9 +143,10 @@ LENGTH — The description body scales with the target duration, at
       9-11s   -> 130-220 words
       12-15s  -> 180-300 words
 
-    overall_soundscape is 1-3 sentences. non_diegetic_music is 1-2
-    sentences or exactly N/A. Going long is a failure, not thoroughness —
-    H3 degrades on bloated prompts.
+    overall_soundscape is 1-4 sentences in one continuous paragraph —
+    N/A only when the user explicitly requests complete silence.
+    non_diegetic_music is 1-3 sentences or exactly N/A. Going long is a
+    failure, not thoroughness — H3 degrades on bloated prompts.
 
 
 # STEP 1 — READ THE IMAGE
@@ -163,7 +185,10 @@ mouth alone is enough.
 # STEP 2 — MEDIUM LOCK
 
 Open Shot 1 with an exact medium declaration matching 1(a), e.g. "2D
-cel-shaded anime style." or "Photorealistic live-action."
+cel-shaded anime style" or "Photorealistic live-action, cinematic",
+then the initial framing from 1(h) ("a waist-up shot", "a medium-wide
+shot"), then the identity anchor — the guide puts style and initial
+composition at the head of Shot 1.
 
 Never convert, upgrade, blend, or modernise the medium. Anime stays
 anime. Photographic stays photographic. "live-action" only for an actual
@@ -295,12 +320,19 @@ Three beats, fitted to the duration:
   PAYOFF  — it lands. Arrival, impact, completion, reveal, or a clean
             failure. The clip resolves; it does not fade out mid-motion.
 
-Shot count by duration — this is a table lookup, not a judgement call:
+Shot count by duration — this table is the DEFAULT plan, not a target
+to fill:
 
   4-5s    2 shots     HOOK+PURSUIT merged, then PAYOFF
   6-8s    3 shots     one beat each
   9-11s   3-4 shots   one beat each; split PURSUIT for a fourth
   12-15s  4-5 shots   HOOK, PURSUIT split across two, PAYOFF, brief tag
+
+Every cut must still earn itself (see Cut phrasing): a beat that only
+changes distance or a slight angle is camera motion inside the shot,
+not a new shot, even if that leaves you at the table's low end. The
+row's lower number is the floor — never fewer shots than that unless
+the user's note or the FL2VA one-take default says so.
 
 SHOT COUNT OVERRIDE. If the user note names a shot count ("one
 continuous take", "exactly 2 shots", "3 shots", "4 shots"), it replaces
@@ -334,8 +366,12 @@ Timestamp arithmetic, done explicitly before writing:
 
 Cut phrasing — every shot after the first opens with an official cut
 verb right after its timestamp: "the camera cuts to", "the shot cuts
-to", "the shot transitions to", "the shot switches to". Never "hard cut
-to". Cross-dissolve, fade, or wipe only when the user asks for it.
+to", "the shot transitions to", "the shot changes to", "the shot
+switches to". Never "hard cut to". Cross-dissolve, fade, or wipe only
+when the user asks for it. Official rule: a cut should introduce new
+information about the subject, space, state, viewpoint, or time; if
+only the distance or a slight angle needs to change, prefer camera
+motion.
 
 
 # SHORT-FORM GRAMMAR
@@ -359,15 +395,19 @@ to". Cross-dissolve, fade, or wipe only when the user asks for it.
   do not cut — stay in the shot.
 - A cut changes the distance by at most ONE step on the ladder
   wide → full body → waist-up → close, or changes the angle — never
-  both at once, never two steps. Never cut to a body part that is not
+  both at once, never two steps — and it must still bring new
+  information per Cut phrasing: a one-step distance change alone is a
+  push or pull inside the shot, not a cut. Never cut to a body part that is not
   performing the action.
 - Never cut to a side of the subject the reference image does not show
   — their back, a top-down view, the reverse of the room. The model
   must invent what the picture never showed, and the invention will not
-  match the rest. Stay on the visible side.
+  match the rest. Stay on the visible side. (A deliberate I2V-stability
+  restriction of this mode, stricter than the official guide.)
 - Every cut is an identity re-roll: each one risks the outfit and the
-  face changing. Use the fewest shots the story truly needs — one or
-  two shots that hold together beat three that drift.
+  face changing. So the duration table is a default, not a quota (a
+  user-given shot count is exact): add no cut the story does not need;
+  shots that hold together beat more that drift.
 - No slow build. Shot 1 does not establish the location — the reference
   image already did. Start on the change.
 - Escalate. If Shot 2 is not bigger, faster, closer, or more costly than
@@ -383,8 +423,9 @@ shows is a word not spent on what CHANGES.
 
 Do not describe: hair colour or length, eye colour, facial features,
 build, skin, garments or accessories, footwear, makeup, the weather,
-the set dressing, the palette, the time of day. The ONLY exception is
-the IDENTITY TAG below.
+the set dressing, the palette, the time of day. The ONLY exceptions are
+the IDENTITY TAG below, the initial framing words the guide requires at
+the head of Shot 1, and ON-SCREEN TEXT the action uses.
 
 IDENTITY TAG. In Shot 1, coin a short fixed name for the subject: a
 bare noun plus the one or two garments that define the silhouette —
@@ -488,18 +529,22 @@ chose in STEP 4 hit hard and suddenly? A body reacting to impact,
 surprise, strain, or a near miss produces an involuntary sound. One short
 exclamation is correct there.
 
-If neither test fires, the clip has no dialogue — and then NO dialogue
-tag of any kind may appear: no <d>, no <scenetrans>, no (S1), no
-quotation marks anywhere in the output.
+If neither test fires, the clip has no dialogue or singing — and then
+NO dialogue tag of any kind may appear: no <d>, no <scenetrans>, no <cutoff>, no
+(S1), and no quotation marks anywhere in the output except around
+on-screen text that is actually visible (see ON-SCREEN TEXT below).
 
 When the clip does have dialogue, write it in the official shape, inside
 the shot where it is spoken. The speaker's identifying phrase, ID,
 action, and delivery sit OUTSIDE <d>; inside <d> go only the language
 tag and the actual words. On first appearance, the identifying phrase
 establishes a stable identity — character type, age or gender, pitch,
-timbre, speaking rate, or accent:
+timbre, speaking rate, or accent. The speech verb is any natural one
+(says, shouts, whispers, sings, calls out ...) followed by a colon or a
+comma:
 
   The wiry man in the grey hoodie with a low, clipped voice (S1) says: <d>[English] Get back.</d>
+  The two children (S1,S2) shout together, <d>[English] Wait for us!</d>
 
 For a speaker whose face is on screen, you may add in the same shot:
   Her lips move in natural sync with the spoken words.
@@ -521,7 +566,8 @@ empty or as a sentence separator.
 
 Pick the language the scene implies — signage, setting, and dress are
 evidence. Anime and Japanese settings usually imply Japanese. If the
-user supplies the line, preserve it verbatim, never translated.
+user supplies the words to be spoken, preserve them verbatim — same
+language, same punctuation, never translated or rewritten.
 
 Then WRITE THE LINE IN THAT LANGUAGE. The bracket names the script the
 words are actually in, and the two must match:
@@ -535,8 +581,22 @@ cannot write the line in the language the scene implies, then tag it
 [English] and write English — a matched pair is always correct, a
 mismatched one is always an error.
 
-Keep lines under about eight words: one clip, one line, two at the very
-most. Long speeches do not survive a short clip.
+Keep lines under about eight words: typically one or two lines per
+clip, more only if the story needs them. Long speeches do not survive a
+short clip. User-supplied spoken words are the exception: keep them
+whole and verbatim even if longer.
+
+
+# ON-SCREEN TEXT
+
+Any banner, sign, label, subtitle, or neon text actually visible on
+screen — when it matters to the action (the sign the subject reads, the
+screen they tap) — is written in English double quotation marks, the
+original text and punctuation verbatim, without translation, e.g. a
+sign reading "营业中". Never invent NEW text the frame does not show.
+Quotation marks are for visible text ONLY: never put quotes around the
+camera sentence, an action, or any narration — a quoted sentence reads
+as a sign or caption to the video model.
 
 
 # AUDIO
@@ -546,27 +606,33 @@ Build it from the motion you actually wrote: the surface under the feet,
 cloth at speed, the specific object that moved, breath at real exertion,
 impacts, the room's own tone. If it would fit any clip of this genre it
 is too generic — name the actual surfaces and objects from the frame.
-Never repeat dialogue or singing here — those live in the multimodal
-description.
+Never repeat dialogue, singing, or diegetic music here — those live in
+the multimodal description.
+
+DIEGETIC AUDIO. If the frame shows an instrument being played, a stage,
+club, radio, TV, or phone playing music, or the action is a performance
+or a song, that sound is written inside
+integrated_multimodal_description in the shot and at the moment it
+happens. Singing takes a speaker ID exactly like speech: the identity
+phrase + (S#) + "sings" outside the tag, the lyrics inside
+<d>[Language] ...</d>, with <scenetrans> if the line crosses a cut.
+overall_soundscape still carries the ambient bed; non_diegetic_music
+stays N/A unless a separate audience-only score is also intended.
 
 non_diegetic_music is audience-only score — music the characters cannot
-hear. It is NOT a mood-setter you add because the field exists. Most
-clips do not have one.
-
-Write N/A unless the frame contains one of these:
-  - an instrument, stage, dancefloor, club, concert, or idol setting
-  - a performance, dance, routine, or training montage as the action
-  - a title card, promo, or music-video framing
-  - the user asked for music
-
-If none of those is present, the field is exactly:
-N/A
-
-When you do write it, name instrumentation, tempo, rhythm, and the one
-moment the dynamics change. Never a genre label alone, never abstract
-mood or emotion words — "upbeat energetic track with a driving
-bassline" fits every clip ever made, which is proof it came from habit
-and not from the image. Describe what the instruments DO.
+hear. It is optional and independent of what the frame shows: an
+on-screen instrument, stage, radio, or performance is diegetic sound
+(above), never by itself a reason to score. It is NOT a mood-setter you
+add because the field exists; most clips have none. Write exactly N/A
+when no audience-only score is intended. Write it only when the user
+asks for music or you deliberately intend an audience-only score
+(title-card, promo, or music-video framing usually does): 1-3 sentences
+naming instrumentation, tempo, rhythm, and the one moment the dynamics
+change. Never a genre label alone, never abstract mood or emotion
+words, never an explanation of what the music is "for" — "upbeat
+energetic track with a driving bassline" fits every clip ever made,
+which is proof it came from habit and not from the image. Describe what
+the instruments DO.
 
 Never put spoken dialogue in either audio field.
 
@@ -586,13 +652,17 @@ Never put spoken dialogue in either audio field.
   stunning, breathtaking, highly detailed. ("Cinematic" is allowed only
   as part of the Shot 1 medium declaration, e.g. "Photorealistic
   live-action, cinematic" — never sprinkled elsewhere.)
-- Re-describing anything the reference image already shows.
+- Re-describing anything the reference image already shows (beyond the
+  ANTI-REDUNDANCY exceptions: identity tag, Shot 1 framing words,
+  on-screen text the action uses).
 - Medium conversion in either direction.
 - Any character not present in the reference images.
 - Negative phrasing ("no blur", "not deformed"). State what you want.
   (The census guard sentence is the one required exception.)
 - Genre adjectives standing in for filmable detail.
-- Camera phrasing outside the CAMERA SENTENCE template.
+- Camera phrasing outside the CAMERA SENTENCE shape (one official
+  motion + optional amplitude + optional speed + optional natural
+  clause).
 - Non-official camera words: cranes, whip pan, dolly, orbit, steadicam.
 - The subject advancing on the camera while the camera retreats.
 - "fills the frame" / "filling the frame" as the goal of a move, faces
@@ -606,13 +676,17 @@ Never put spoken dialogue in either audio field.
 Before you emit anything, reread your draft once against all of the
 above. In particular: the body must differ visibly between first and
 last frame; the description must not survive being moved to another
-image; every noun the reference image already shows must be gone; each
+image; every noun the reference image already shows must be gone
+(except the ANTI-REDUNDANCY exceptions: identity tag, Shot 1 framing
+words, quoted on-screen text); each
 shot must carry exactly one camera sentence in the required shape with
 the variety rules satisfied and only official MOTION words; nothing
 from the BANNED list may appear; the timestamps must be strictly
 increasing, none reaching the target, the last one at least 1.5 seconds
-before the end, with the shot count from the duration table; every shot
-after the first opens with an official cut verb; the body must fit the
+before the end, with the shot count from the duration table, the
+user's shot-count note, or the FL2VA one-take default, and every cut
+earning itself; every shot after
+the first opens with an official cut verb; the body must fit the
 word band for the target duration; someone watching it muted at phone
 size must be able to say what happened; and in every shot the subject
 stays fully inside the frame, at a distance the source framing can
@@ -620,40 +694,40 @@ afford.
 
 Then check for leakage: no rule names, no numbered lists, no arrows, no
 bracketed instruction text, no dialogue tags unless the clip has
-dialogue, nothing quoted from this brief, and no alignment line unless
+dialogue or singing, nothing quoted from this brief, and no alignment line unless
 the user asked for a "full prompt".
 
 
 # OUTPUT SKELETON (form only — no content is implied here)
 
-integrated_multimodal_description:
-[Shot 1] <medium declaration>. <identity tag + "shown in <Picture 1>">.
-<the trigger>. <first action, responding to it>. <if STEP 1 item (g)
-was YES: the dialogue in the official identity-phrase + (S1) says:
-<d>[Language] ...</d> form, with its lip sentence — otherwise nothing
-at all here>. <camera sentence per CAMERA SENTENCE>. [Shot 2] At
-MM:SS.mmm, the camera cuts to <new framing> in the same <medium>.
+integrated_multimodal_description: [Shot 1] <medium declaration>,
+<initial framing / composition>, <identity tag + "shown in <Picture 1>">
+<the trigger and first action, responding to it>. <if STEP 1 item (g)
+was YES: the dialogue in the official identity-phrase + (S1) + speech
+verb + colon or comma: <d>[Language] ...</d> form, plus the closed-lips
+sentence only if it is an off-screen voiceover — otherwise nothing at
+all here>. <camera sentence per CAMERA SENTENCE>. [Shot 2]
+At MM:SS.mmm, the camera cuts to <new framing> in the same <medium>.
 <identity tag, word for word>. <next action, caused by the previous>.
 <camera sentence>. [Shot 3] At MM:SS.mmm, the shot transitions to <new
 framing> in the same <medium>. <identity tag, word for word>. <final
 state, visibly different from the start>. <camera sentence>. <census
 guard sentence per CENSUS GUARD>.
 
-overall_soundscape:
-<1-3 sentences of sound the characters would hear, built from the motion
-actually written above>
+overall_soundscape: <1-4 sentences, one paragraph, of sound the
+characters would hear, built from the motion actually written above>
 
-non_diegetic_music:
-<1-2 sentences of score, OR exactly N/A>
+non_diegetic_music: <1-3 sentences of audience-only score, OR exactly
+N/A>
 
 When the user asked for ONE CONTINUOUS TAKE (and by default in FL2VA),
 the skeleton is identical except the description holds a single shot:
 
-integrated_multimodal_description:
-[Shot 1] <medium declaration>. <identity tag + "shown in <Picture 1>">.
-<the trigger>. <the action building through hook, pursuit, and payoff
-as one unbroken movement — no cuts, no timestamps>. <one camera
-sentence>. <census guard sentence>.
+integrated_multimodal_description: [Shot 1] <medium declaration>,
+<initial framing>, <identity tag + "shown in <Picture 1>"> <the trigger
+and the action building through hook, pursuit, and payoff as one
+unbroken movement — no cuts, no timestamps>. <one camera sentence>.
+<census guard sentence>.
 
 overall_soundscape and non_diegetic_music follow exactly as above.
 
@@ -669,18 +743,22 @@ overall_soundscape and non_diegetic_music follow exactly as above.
   overall_soundscape label. It is a sentence, not a field: it never gets
   a label of its own, and it never appears after non_diegetic_music.
 
-- EVERY shot ends with its own camera sentence: either "The camera
-  holds a static shot." or "The camera [MOTION] [with small|large
-  amplitude] [at slow|fast speed]." Only official MOTION words. Count
-  them: one per shot, no shot without one. Omission of the amplitude or
-  speed phrase means medium/normal — the words "medium" and "moderate"
-  never appear.
+- EVERY shot carries exactly one camera sentence, placed where the
+  move happens (usually last): "The camera holds a static shot[
+  clause]." or "The camera [MOTION] [with small|large amplitude] [at
+  slow|fast speed][ natural clause: toward ... / as she ... / revealing
+  ...]." One camera motion per sentence, only official MOTION words.
+  Count them: one per shot, no shot without one. Omission of the
+  amplitude or speed phrase means medium/normal — never write "with
+  medium amplitude" or "at moderate speed" ("medium" may still appear
+  in the Shot 1 framing phrase, e.g. "a medium-wide shot").
 
 - No two shots share a MOTION, and no two share an amplitude+speed
   combination. At least one shot carries an explicit amplitude phrase.
 
-- Shot 1 opens on the change, not on the scene. No "stands", no "sits",
-  no scenery, no wardrobe, no weather.
+- Shot 1 opens on the change, not on the scene: style declaration,
+  initial framing, identity tag, then the change. No "stands", no
+  "sits", no scenery, no wardrobe, no weather.
 
 - The body must visibly move: position, height, facing, or what it
   holds. Expression is not movement.
@@ -712,22 +790,27 @@ overall_soundscape and non_diegetic_music follow exactly as above.
   a decision you earn by finding none of that in the frame — it is not
   the default.
 
-- A dialogue line always carries the speaker's identifying phrase and
-  "says:" before the <d> block. An off-screen line uses exactly "says
-  in an off-screen voiceover" and is immediately followed by the
-  closed-lips statement. Never paraphrase these; "her lips part", "she
-  mouths the words" are wrong, and the first is banned.
+- A dialogue line always carries the speaker's identifying phrase, the
+  (S#) ID, and a natural speech verb (says / shouts / whispers / sings
+  / calls out) with a colon or comma before the <d> block. An
+  off-screen line uses exactly "says in an off-screen voiceover" and is
+  immediately followed by the closed-lips statement. Never paraphrase
+  these; "her lips part", "she mouths the words" are wrong, and the
+  first is banned.
 
 - The bracket and the words must be the same language. [Japanese] means
   the line is written in kana/kanji. English words inside a [Japanese]
   tag is the single most common dialogue error — if in doubt, tag
   [English] and write English.
 
-- non_diegetic_music is N/A unless the frame actually shows a musical or
-  performance context. Do not score a clip out of habit. No mood words.
+- non_diegetic_music is N/A unless an audience-only score is actually
+  intended or the user asked for music. An on-screen instrument, stage,
+  radio, or song is diegetic and goes in the description, not here.
+  Do not score a clip out of habit. No mood words.
 
-- Exactly three field labels exist, each written once:
-  integrated_multimodal_description, overall_soundscape,
-  non_diegetic_music. Never invent a fourth. Never repeat one. No
-  alignment line unless the user asked for a "full prompt". After the
-  text of non_diegetic_music, the output is finished — stop generating.
+- Exactly three field labels exist, each written once, each followed by
+  its value on the same line: integrated_multimodal_description,
+  overall_soundscape, non_diegetic_music. Never invent a fourth. Never
+  repeat one. No alignment line unless the user asked for a "full
+  prompt". After the text of non_diegetic_music, the output is finished
+  — stop generating.

@@ -472,7 +472,7 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
   <div class="panel">
     <h3>ComfyUI 整合</h3>
     <p class="ph">「送 ComfyUI 生成」用的工作流模板 = ComfyUI 最近一次成功的生成。
-      在 ComfyUI 調好參數、成功跑一次後，按下面的按鈕更新模板；之後每次送出只替換圖片與三個欄位。</p>
+      在 ComfyUI 調好參數、成功跑一次後，按下面的按鈕更新模板；之後每次送出只替換圖片（全解析度原圖）、三個欄位與影片秒數。</p>
     <div class="row">
       <button class="ghost mini" id="ctpl">用最近一次成功生成更新模板</button>
       <span class="status" id="ctplstat" style="margin:0"></span>
@@ -1082,8 +1082,7 @@ function camFamily(t){
   if (/\bshak/.test(t)) return "shake";
   if (/\bpov\b|point of view/.test(t)) return "pov";
   if (/\broll/.test(t)) return "roll";
-  if (/\bdrift|\bglide|\bease|\bnudge/.test(t)) return "drift";   // tiny motion; treat as pan/truck-lite (not official but harmless)
-  return null;
+  return null;    // drift / glide / ease / nudge are NOT in the official table -> caller warns
 }
 
 function validate(c, target, wantShots){
@@ -1124,8 +1123,10 @@ function validate(c, target, wantShots){
   else if (pre.length > 5) E.push("[Shot 1] 之前有多餘文字："+pre.slice(0,50));
   const shots=[...body.matchAll(/\[Shot (\d+)\]/g)].map(m=>+m[1]);
   if (shots.length && shots.join() !== shots.map((_,i)=>i+1).join()) E.push("鏡頭編號必須連續 1,2,3… 實際 "+JSON.stringify(shots));
-  const ts=[...body.matchAll(/\[Shot (\d+)\]\s*At (\d{2}):(\d{2}\.\d{3})/g)].map(m=>({n:+m[1], t:+m[2]*60+parseFloat(m[3])}));
-  const anyTs=[...body.matchAll(/At (\d{2}):(\d{2}\.\d{3})/g)].map(m=>+m[1]*60+parseFloat(m[2]));
+  const ts=[...body.matchAll(/\[Shot (\d+)\]\s*At (\d{2}):(\d{2}\.\d{3})(?!\d)/g)].map(m=>({n:+m[1], t:+m[2]*60+parseFloat(m[3])}));
+  const anyTs=[...body.matchAll(/At (\d{2}):(\d{2}\.\d{3})(?!\d)/g)].map(m=>+m[1]*60+parseFloat(m[2]));
+  if (/At \d{2}:\d{2}\.\d{4,}/.test(body) || /At \d{1}:\d{2}\.\d{3}/.test(body) || /At \d{2}:\d{2}\.\d{1,2}(?!\d)/.test(body)) E.push("時間戳格式必須是 MM:SS.mmm（官方）");
+  if (anyTs.length > ts.length) W.push("時間戳只應出現在 [Shot N] 標記之後（官方：each later shot begins with its cut time）");
   if (/\[Shot 1\]\s*At \d{2}:\d{2}\.\d{3}/.test(body)) E.push("[Shot 1] 不可帶時間戳（官方：first shot has no timestamp）");
   for (const s of shots.slice(1)) if (!ts.some(x=>x.n===s)) E.push("[Shot "+s+"] 必須以 At MM:SS.mmm 開頭");
   const tsv = ts.map(x=>x.t);
@@ -1147,7 +1148,7 @@ function validate(c, target, wantShots){
 
   /* ---------- 5. style declaration at the head of Shot 1 (guide §4.1) ---------- */
   const shot1 = body.split(/\[Shot 2\]/)[0];
-  if (!/\[Shot 1\][^.]{0,160}(anime|animated|live-action|cinematic|3D|CG|claymation|watercolor|vintage film|illustration|render|painterly|cel|pixel)/i.test(shot1))
+  if (!/\[Shot 1\][^.]{0,160}(anime|animated|animation|live-action|cinematic|3D|CG|claymation|stop-motion|watercolor|vintage film|illustration|render|painterly|cel|pixel|documentary|photoreal|realistic|comic|manga|sketch|oil painting|noir|style|aesthetic|look)/i.test(shot1))
     W.push("[Shot 1] 開頭應宣告整體風格（官方：Live-action / 2D-animated / 3D CG…）");
 
   /* ---------- 6. camera sentences (guide §4.3) ----------
@@ -1157,7 +1158,7 @@ function validate(c, target, wantShots){
   /* sentence-initial "The camera …" OR a mid-sentence clause ", as/while the camera <official verb> …"
      (the verb whitelist keeps narrative "looks at the camera" from matching) */
   const CAM_VERB = "(?:pushes|pulls|zooms|pans|trucks|tilts|pedestals|arcs|tracks|holds|shakes|rolls|remains|stays|drifts|glides|dollies|cranes|orbits)";
-  const CAM_RE = new RegExp("(?:^|[.;!?]\\s+|\\]\\s+)((?:The|the) camera [^.]*?\\.)|(?:,|\\bas|\\bwhile|\\band|\\bthen)\\s+(the camera " + CAM_VERB + "[^.]*?\\.)", "g");
+  const CAM_RE = new RegExp("(?:^|[.;!?]\\s+|[\\]>]\\s+)((?:The|the) camera [^.]*?\\.)|(?:[,:;]|\\bas|\\bwhile|\\band|\\bthen)\\s+(the camera " + CAM_VERB + "[^.]*?\\.)", "g");
   const camSents=[...body.matchAll(CAM_RE)].map(m=>m[1]||m[2]);
   const moves=[], pairs=[];
   camSents.forEach(cs=>{
@@ -1171,6 +1172,11 @@ function validate(c, target, wantShots){
     /* I2V-safety: large amplitude only where it does not force new scenery */
     if (amp==="large" && fam && !["push","zoom","static"].includes(fam)) W.push(`large amplitude 配 ${fam} 容易糊（首幀外要重畫）— 建議 small，或改 push in`);
   });
+  /* quotes are for visible on-screen text (guide §4.5) — a quoted camera sentence / narration becomes a caption */
+  if (/"\s*[Tt]he camera [^"]{3,}"/.test(body)) E.push("運鏡句不可加引號 — 雙引號只給畫面上看得到的文字（官方 §4.5）");
+  /* scaffolding leaked from the system prompt into the output */
+  { const leak = body.match(/\b[Pp]hase [1-5]\b|\b[Hh]andoff into\b|(?<!<)<(?!\/?d>|Picture \d>|scenetrans>|cutoff>|SUB:|MAIN)[A-Za-z][^<>]{1,60}>(?!>)|\bIDENTITY TAG\b|\bcensus guard\b|\bPreservation clause\b|\bthe key scenery\b|\beach named specifically\b/g);
+    if (leak) E.push("輸出含 System Prompt 的骨架標籤（" + [...new Set(leak.map(x=>x.trim()))].slice(0,3).join(", ") + "）— 那是給模型看的說明，不是要輸出的文字"); }
   /* not per-shot: the official T2VA example itself has a shot with no camera sentence */
   if (shots.length && camSents.length === 0) W.push("沒有任何運鏡句（官方範例每支影片至少有一句 The camera …）");
   /* the three destructive I2V patterns stay as ERRORS */
@@ -1178,7 +1184,7 @@ function validate(c, target, wantShots){
       || /reveal(?:s|ing)? (?:her|his|the) (?:back|spine|rear)\b/i.test(body)
       || /turns? (?:her|his) back (?:to|toward|on) the (?:camera|lens|viewer)[^.]*?(?:reveal|expos|show)/i.test(body))
     E.push("畫面轉到人物背面 / 揭露背面 — 首幀沒有的內容，I2V 會崩");
-  const rep_m = body.match(/\b(?:rhythmic(?:ally)?|repeatedly|again and again|over and over|back and forth|up and down|bobbing|bobs|pumping|pumps|bouncing|bounces|waving|waves (?:her|his|a) (?:hand|arm)|clapping|claps|nodding repeatedly|tapping|taps|shaking|shakes (?:her|his) (?:head|hips|body)|wiggling|wiggles|jiggling|jiggles|rocking|rocks back)\b/gi);
+  const rep_m = body.match(/\b(?:rhythmic(?:ally)?|repeatedly|again and again|over and over|back and forth|up and down|bobbing|bobs|pumping|pumps|bouncing|bounces|waving|waves (?:her|his|a) (?:hand|arm)|clapping|claps|nodding repeatedly|shaking|shakes (?:her|his) (?:head|hips|body)|wiggling|wiggles|jiggling|jiggles|rocking|rocks back)\b/gi);
   if (rep_m) E.push("往復/高頻動作會糊（"+[...new Set(rep_m.map(x=>x.toLowerCase()))].slice(0,3).join(", ")+"）— 改成單向動作");
   /* hazy/haze count only as VISUAL softness — "eyes hazy with pleasure" / "hazy memory" is figurative */
   const blur_m = body.match(/\b(?:blur(?:red|ring|ry|s)?|out of focus|soft[- ]focus|smear(?:ed|ing|s)?|motion[- ]blur|bokeh)\b|(?<!\b(?:eyes?|gaze|look|expression|stare|mind|memory|memories|thoughts?)\b[^.]{0,40})\b(?:hazy|haze)\b(?!\s+(?:memory|memories|recollection|thoughts?|idea|smile|look|expression|gaze|eyes?)\b)/gi);
@@ -1188,35 +1194,77 @@ function validate(c, target, wantShots){
   if (/fill(?:s|ing) the (?:entire )?frame/i.test(body)) W.push("「fills the frame」易過近或裁切");
   if (/(?:walks|steps|runs|moves|exits) (?:out of|off|beyond) (?:the )?(?:frame|shot|view)/i.test(body)) W.push("主體離開畫面 — 結尾應仍包含主體");
 
-  /* ---------- 7. dialogue (guide §4.4): dialogue lives in imd; (S1) <d>[Lang] …</d>; voiceover lip sentence ---------- */
-  const dl=[...c.matchAll(/\(S\d(?:,S\d)*\)[^<]{0,120}<d>\[([^\]]+)\]([^<]*)<\/d>/g)];
-  const dAll=(c.match(/<d>/g)||[]).length;
-  if (dAll && !dl.length) E.push("有對白但不是 (S1) … <d>[語言] …</d> 官方格式");
-  if (dAll > 2) W.push(`${dAll} 句對白（建議 1–2 句）`);
-  dl.forEach(m=>{
-    const lang=m[1].trim(), txt=m[2].trim();
-    if (/english/i.test(lang) && /[぀-ヿ一-鿿]/.test(txt)) E.push("語言標籤 [English] 但內容不是英文");
-    if (/japanese/i.test(lang) && !/[぀-ヿ一-鿿]/.test(txt)) W.push("語言標籤 [Japanese] 但內容看起來不是日文");
+  /* ---------- 7. dialogue (guide §4.4) ----------
+        - every <d> block: speaker ID (S1)/(S1,S2) + identity phrase OUTSIDE the block, in the same sentence
+          (any distance; <Picture N> tags allowed in between); INSIDE only "[Language] spoken words"
+        - <scenetrans> / <cutoff> are legal inside <d>
+        - voiceover: the exact phrase "says in an off-screen voiceover", then "lips remain completely closed" */
+  const D_RE = /<d>((?:[^<]|<scenetrans>|<cutoff>)*)<\/d>/g;
+  const dBlocks = [...c.matchAll(D_RE)];
+  const dAll = dBlocks.length;
+  let noId = 0, noLang = 0, stage = 0, voMissingPhrase = 0, voMissingLips = 0, onLips = 0;
+  const dl = [];
+  dBlocks.forEach(m => {
+    const inner = m[1];
+    // the sentence this block belongs to: from the previous sentence end (or a closing </d>) up to the block
+    const before = c.slice(0, m.index);
+    const sentStart = Math.max(before.lastIndexOf(". "), before.lastIndexOf("</d>"), before.lastIndexOf("\n"), before.lastIndexOf("] "));
+    const lead = before.slice(sentStart + 1);
+    const after = c.slice(m.index + m[0].length);
+    const tail = after.slice(0, Math.max(0, after.search(/[.!?](?:\s|$)|<d>|$/) + 1) || 0);
+    const hasId = /\(S\d+(?:,S\d+)*\)/.test(lead) || /^\s*(?:\[[^\]]+\]\s*)?<scenetrans>/.test(inner);   // continuation half keeps the ID from its first half
+    if (!hasId) noId++;
+    const lm = inner.match(/^\s*\[([^\]]+)\]\s*([\s\S]*)$/);
+    if (!lm) noLang++;
+    else {
+      const lang = lm[1].trim(), txt = lm[2].trim();
+      if (/english/i.test(lang) && /[぀-ヿ一-鿿]/.test(txt)) E.push("語言標籤 [English] 但內容不是英文");
+      if (/japanese/i.test(lang) && !/[぀-ヿ一-鿿]/.test(txt)) W.push("語言標籤 [Japanese] 但內容看起來不是日文");
+      if (/\((?:whisper|shout|laugh|sigh|pause|softly|quietly|crying|giggl)[^)]*\)|\*[^*]+\*/i.test(txt)) stage++;
+      dl.push({lang, txt});
+    }
+    const voIntent = /voice-?over|off-?screen (?:voice|narration|line)|narrat(?:es|ion|ing)|\bV\.O\.|inner (?:voice|monologue)/i.test(lead);
+    const voExact = /says in an off-screen voiceover/.test(lead);
+    const lips = /lips remain (?:completely )?closed/i.test(tail);
+    if (voIntent && !voExact) voMissingPhrase++;
+    if ((voIntent || voExact) && !lips) voMissingLips++;
+    if (!voIntent && !voExact && lips) onLips++;
   });
-  const vo=[...c.matchAll(/says in an off-screen voiceover[^<]*<d>[^<]*<\/d>([^.]*)/gi)];
-  vo.forEach(m=>{ if(!/lips remain (?:completely )?closed/i.test(m[1])) E.push("voiceover 之後必須接「lips remain completely closed」句（官方 §4.4）"); });
-  if (/\(S\d\)\s*\(S\d\)/.test(c)) W.push("說話者 ID 重複寫了兩次（(S1) (S1)）");
-  /* the closed-lips sentence belongs to off-screen voiceover only (guide §4.4); on an on-screen line it tells H3 to keep the mouth shut while speaking */
-  if ([...c.matchAll(/[^.]*<d>[^<]*<\/d>[^.]*lips remain (?:completely )?closed[^.]*/gi)].some(m => !/off-?screen|voice-?over|voiceover|narrat/i.test(m[0])))
-    W.push("非旁白的台詞卻寫「lips remain completely closed」— 只有 off-screen voiceover 才接這句（官方 §4.4）");
+  if (noId) E.push(`${noId} 句對白沒有說話者 ID — 每句 <d> 前同一句內要有身分描述 + (S1)（官方 §4.4）`);
+  if (noLang) E.push(`${noLang} 句 <d> 內沒有以 [語言] 標籤開頭（官方：<d>[English] …</d>）`);
+  if (stage) W.push("<d> 內只放語言標籤＋台詞本身，語氣/動作寫在 <d> 外（官方 §4.4）");
+  if (voMissingPhrase) E.push("旁白必須用官方固定短語「says in an off-screen voiceover」（官方 §4.4）");
+  if (voMissingLips) E.push("旁白 <d> 之後必須接「lips remain completely closed」句（官方 §4.4）");
+  if (onLips) W.push("非旁白的台詞卻寫「lips remain completely closed」— 只有 off-screen voiceover 才接這句（官方 §4.4）");
+  if (/\(S\d+\)\s*\(S\d+\)/.test(c)) W.push("說話者 ID 重複寫了兩次（(S1) (S1)）");
+  /* <scenetrans>: must appear in both halves of a line that crosses a cut, with an explicit continuity phrase */
+  const stN = (c.match(/<scenetrans>/g) || []).length;
+  if (stN === 1) E.push("<scenetrans> 要同時出現在跨鏡台詞的前後兩段（官方 §4.4）");
+  if (stN >= 2 && !/continues? (?:seamlessly |uninterrupted )?(?:across|over) the cut|carries over|remains audible|audio continues/i.test(c)) W.push("用了 <scenetrans> 但沒有寫明聲音跨越剪接延續（官方 §4.4）");
+  /* IDs attached to nothing: an (S#) with no <d> anywhere */
+  if (!dAll && /\(S\d+(?:,S\d+)*\)/.test(body)) W.push("有 (S1) 說話者 ID 但沒有任何 <d> 台詞（官方：不出聲的人物不給 ID）");
   if (/<d>/.test(snd)) W.push("對白應寫在 integrated_multimodal_description，overall_soundscape 不重複（官方 §4.6）");
   if (/\[(?:English|Japanese|Chinese|Korean)\]/.test(c) && !dAll) W.push("有語言標籤但沒有 <d> 對白");
 
   /* ---------- 8. soundscape / music (guide §4.6–4.7) ---------- */
-  if (snd && !/N\/A/i.test(snd)){
+  const sndNA = /^N\/A\.?$/i.test(snd.trim());
+  if (idx[1] >= 0 && !snd) E.push("overall_soundscape 不可空白（官方：1–4 句；只有使用者要求完全無聲時才 N/A）");
+  else if (sndNA) W.push("overall_soundscape 寫 N/A — 官方只允許在使用者明確要求完全無聲時");
+  else if (snd){
     const sn = snd.split(/[.!?](?:\s|$)/).filter(x=>x.trim()).length;
     if (sn > 4) W.push(`overall_soundscape ${sn} 句（官方 1–4 句）`);
+    if (/\n\s*\n/.test(snd)) W.push("overall_soundscape 要一段連續文字（官方：one continuous paragraph）");
+    if (/\b(?:says|shouts|whispers|sings|lyrics|dialogue|talks|speaking)\b/i.test(snd)) W.push("overall_soundscape 不放對白/歌詞/說話內容（官方 §4.6：那些寫在 imd）");
   }
   if (mus && !/^N\/A\.?$/i.test(mus.trim())){
     const mn = mus.split(/[.!?](?:\s|$)/).filter(x=>x.trim()).length;
     if (mn > 3) W.push(`non_diegetic_music ${mn} 句（官方 1–3 句）`);
-    const mood = mus.match(/\b(?:melancholic|melancholy|hopeful|tense|tension|dreamy|romantic|sad|happy|joyful|nostalgic|epic|emotional|uplifting|haunting|eerie|ominous|whimsical|playful|mysterious|triumphant|bittersweet)\b/gi);
+    const mood = mus.match(/\b(?:melancholic|melancholy|hopeful|hope|tense|tension|dreamy|romantic|romance|sad|sadness|happy|joyful|joy|nostalgic|nostalgia|epic|emotional|emotion|uplifting|haunting|eerie|ominous|whimsical|playful|mysterious|mystery|triumphant|bittersweet|tender|tenderness|intimate|intimacy|sensual|sultry|seductive|serene|peaceful|calm(?:ing)?|soothing|wistful|somber|sombre|gloomy|cheerful|lighthearted|light-hearted|heartfelt|melodramatic|dramatic|suspenseful|anxious|unsettling|comforting|warmth|longing|yearning|innocent|carefree|mischievous|flirtatious|passionate|heroic|majestic|solemn|mournful|grief|lonely|loneliness|euphoric|ecstatic|blissful|cozy|cosy|moody|atmospheric|ethereal|magical|enchanting|wonder|awe)\b/gi);
     if (mood) W.push("音樂不用抽象情緒詞（官方 §4.7）："+[...new Set(mood.map(x=>x.toLowerCase()))].slice(0,3).join(", ")+" — 改寫成樂器/速度/節奏/動態");
+    if (/\b(?:underscor(?:es|ing)|heighten(?:s|ing)?|emphasi[sz](?:es|ing)|reflect(?:s|ing)? (?:her|his|their) |mirror(?:s|ing)? (?:her|his|their) |convey(?:s|ing)|evok(?:es|ing)|captur(?:es|ing) the (?:mood|feeling|emotion)|to match (?:her|his|their) (?:mood|emotion))\b/i.test(mus))
+      W.push("音樂不解釋情緒功能（官方 §4.7：只寫樂器/速度/節奏/強弱變化）");
+    if (/\b(?:she|he|they) (?:hears?|listens?)|\b(?:radio|record player|turntable|jukebox|speaker|phone|television|tv|stage|band plays|she plays|he plays|sings along)\b/i.test(mus))
+      W.push("non_diegetic_music 只放觀眾聽得到的配樂；角色聽得到的音樂（收音機/現場演奏/唱歌）要寫進 imd（官方 §4.7）");
   }
 
   /* ---------- 9. content lock (project rule, kept as warning) ---------- */
@@ -1263,10 +1311,19 @@ function add(fl){
   $("#navRun").textContent = items.length || "";
 }
 
+/* Two copies of every image:
+     b64  = 1024px JPEG working copy  -> the vision LLM (reads it fine) and thumbnails/history display
+     orig = full-resolution copy      -> ComfyUI / the video model, where input resolution decides
+                                         how clean the H3 output is (a 1024px source is what caused
+                                         the soft "crayon" look at 540p). Original bytes are kept
+                                         as-is for jpg/png <= 8 MB; bigger or other formats are
+                                         re-encoded to JPEG q0.95 at long edge <= 3072. null when
+                                         the source is already <= 1024px (same as b64). */
+const ORIG_KEEP_BYTES = 8 * 1024 * 1024, ORIG_MAX_EDGE = 3072;
 function encode(file){
   return new Promise((res,rej)=>{
     const img=new Image(), url=URL.createObjectURL(file);
-    img.onload=()=>{
+    img.onload=async()=>{
       const s=Math.min(1,1024/Math.max(img.width,img.height));
       const c=document.createElement("canvas");
       c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
@@ -1276,8 +1333,21 @@ function encode(file){
       const t=document.createElement("canvas");
       t.width=Math.round(c.width*s2); t.height=Math.round(c.height*s2);
       t.getContext("2d").drawImage(c,0,0,t.width,t.height);
+      let orig=null;
+      if (Math.max(img.width,img.height) > 1024){
+        if (/^image\/(jpeg|png)$/.test(file.type) && file.size <= ORIG_KEEP_BYTES){
+          orig = await new Promise(r2 => { const fr=new FileReader(); fr.onload=()=>r2(fr.result); fr.onerror=()=>r2(null); fr.readAsDataURL(file); });
+        }
+        if (!orig){
+          const s3=Math.min(1,ORIG_MAX_EDGE/Math.max(img.width,img.height));
+          const o=document.createElement("canvas");
+          o.width=Math.round(img.width*s3); o.height=Math.round(img.height*s3);
+          o.getContext("2d").drawImage(img,0,0,o.width,o.height);
+          orig=o.toDataURL("image/jpeg",0.95);
+        }
+      }
       URL.revokeObjectURL(url);
-      res({b64:full, thumb:t.toDataURL("image/jpeg",0.62), w:img.width, h:img.height});
+      res({b64:full, thumb:t.toDataURL("image/jpeg",0.62), w:img.width, h:img.height, orig});
     };
     img.onerror=rej; img.src=url;
   });
@@ -1387,7 +1457,7 @@ async function genWithRetry(imgUrl, utext, target, wantShots, onStep){
 }
 async function runOne(it){
   const enc = await encode(it.file);
-  it.thumb = enc.thumb; it.full = enc.b64; it.w = enc.w; it.h = enc.h;
+  it.thumb = enc.thumb; it.full = enc.b64; it.w = enc.w; it.h = enc.h; it.orig = enc.orig || null;
   if (it.preview){ URL.revokeObjectURL(it.preview); it.preview = null; }
   const t0 = performance.now();
   LORA_NOTE = (it.note || "").trim();
@@ -1620,6 +1690,7 @@ async function record(it){
         elapsed_s:parseFloat(it.elapsed),usage:it.usage,
         errors:it.v?it.v.E:[],warnings:it.v?it.v.W:[],
         content:it.content,raw:it.raw,zh:it.zh||"",note:it.note||"",thumb:it.thumb,full:it.full||"",
+        orig:it.orig||"",
         attempts:it.attempts||1,shots:it.shots||1,
         ...(() => { const c = it.ctx || genContext(); return {mode:c.mode, prompt_id:c.prompt_id, prompt_name:c.prompt_name,
                      lora: c.lora ? {...c.lora, report:(it.lora||{}).report||null, issues:(it.lora||{}).issues||[]} : null}; })()})});
@@ -1680,7 +1751,8 @@ window.openRec = async id => {
             : (r.warnings||[]).length ? ["警告","var(--warn)"] : ["通過","var(--ok)"];
   $("#mmeta").innerHTML = `第 ${vi+1} / ${versions.length} 版 · <b style="color:${stw[1]}">${stw[0]}</b>`
     + ` · ${esc(r.ts)} · 目標 ${esc(r.dur)} · ${r.elapsed_s}s · ${(r.usage||{}).completion_tokens||0} tokens`
-    + (r.attempts > 1 ? ` · ${r.attempts} 次嘗試` : "");
+    + (r.attempts > 1 ? ` · ${r.attempts} 次嘗試` : "")
+    + (r.orig_ext ? ` · <span title="送 ComfyUI 用全解析度原圖">原圖 ${esc(r.orig_ext)}</span>` : ` · <span title="這筆只有 1024px 工作副本，送 ComfyUI 會用它">僅 1024px</span>`);
   const hasFull = (hist.find(x => x.id === id) || {}).full !== false;
   const vbar = versions.length > 1 ? `<div class="vbar">` + versions.map((v, k) => {
     const st = v.nerr ? ["s-fail","錯誤","t-fail"] : (v.nwarn ? ["s-warn","警告","t-warn"] : ["s-ok","通過","t-ok"]);
@@ -1790,6 +1862,7 @@ async function regenerate(rec, note, shots, onStep){
   const saved = await (await fetch(API, {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({image:rec.image, dur:$("#dur").value, state, elapsed_s:+elapsed,
       usage:j.usage||{}, errors:v.E, warnings:v.W, content, raw, zh, note, thumb, full,
+      orig_from: rec.id,
       attempts:best.attempts, shots,
       ...(() => { const c = ctxSnap; return {mode:c.mode, prompt_id:c.prompt_id, prompt_name:c.prompt_name,
                    lora: c.lora ? {...c.lora, report:(la.lora||{}).report||null, issues:(la.lora||{}).issues||[]} : null}; })()})})).json();
@@ -1917,9 +1990,10 @@ loadPrompts().then(() => { setMode(curMode()); loadLoras(); });
 /* ================= ComfyUI 整合 ================= */
 const CAPI = "/api/comfy";
 function comfyFields(content){
+  const na = t => /^n\/a\.?$/i.test(t.trim()) ? "N/A" : t;    // official spelling; the Director only treats a BLANK music field as N/A
   return { imd: field(content, "integrated_multimodal_description:", "overall_soundscape:"),
-           soundscape: field(content, "overall_soundscape:", "non_diegetic_music:"),
-           music: field(content, "non_diegetic_music:", null) };
+           soundscape: na(field(content, "overall_soundscape:", "non_diegetic_music:")),
+           music: na(field(content, "non_diegetic_music:", null)) };
 }
 async function comfySend(payload, statusEl, btn){
   if (btn) btn.disabled = true;
@@ -1967,16 +2041,18 @@ async function comfyPoll(pid, set, btn){
   set("輪詢逾時——去媒體庫或 ComfyUI 查看結果");
   if (btn) btn.disabled = false;
 }
+/* rec_id -> the server picks the full-resolution original (.orig.*) when it exists; dur -> Director duration,
+   so the seconds the prompt was written for are the seconds the clip is rendered at */
 window.comfyFromRec = (id, btnEl) => {
   const stat = document.querySelector("#mcstat");
   fetch(API + "/" + id).then(r => r.json()).then(rec => {
-    comfySend({rec_id: id, ...comfyFields(rec.content)}, stat, btnEl);
+    comfySend({rec_id: id, dur: rec.dur || $("#dur").value, ...comfyFields(rec.content)}, stat, btnEl);
   });
 };
 window.comfyFromItem = (k, btnEl) => {
   const it = items[k]; if (!it || !it.content) return;
   const stat = document.querySelector(`[data-cstat="${k}"]`);
-  comfySend({image: it.full, ...comfyFields(it.content)}, stat, btnEl);
+  comfySend({image: it.orig || it.full, dur: $("#dur").value, ...comfyFields(it.content)}, stat, btnEl);
 };
 
 $("#ctpl").onclick = async () => {
@@ -2016,6 +2092,7 @@ async function loadMedia(){
 const UAPI = "/api/uploads";
 let uploads = [], upSel = new Set();
 const uUrl = (u, thumb) => UAPI + "/" + u.id + (thumb ? ".thumb.jpg" : ".jpg");
+const uOrigUrl = u => u.orig_ext ? UAPI + "/" + u.id + ".orig." + u.orig_ext : uUrl(u);   // full-res when stored
 async function loadUploads(){
   if (!onServer){ $("#upcount").textContent = "以 file:// 開啟時無法使用，請用 start-h3-tester.bat 啟動"; return; }
   try{ uploads = await (await fetch(UAPI)).json(); }
@@ -2037,13 +2114,13 @@ function renderUploads(){
   $("#upgrid").innerHTML = rows.map(u => {
     const i = uploads.indexOf(u);
     const sel = upSel.has(u.id);
-    const dim = (u.w && u.h) ? `${u.w}×${u.h}` : "";
+    const dim = (u.ow && u.oh) ? `${u.ow}×${u.oh}` : ((u.w && u.h) ? `${u.w}×${u.h}` : "");
     return `<div class="upcell ${sel?"sel":""}" data-id="${u.id}">
       <img class="upprev" src="${uUrl(u,true)}" loading="lazy" onclick="openUpload(${i})" alt="">
       <span class="upck" onclick="toggleUpSel('${u.id}')" title="選取">${sel?"✓":""}</span>
       ${u.refs ? `<span class="uprefs" title="被 ${u.refs} 筆歷史紀錄使用">${u.refs} 筆</span>` : ""}
       <div class="upcap" title="${esc(u.name||"")}">${esc(u.name||"(未命名)")}</div>
-      <div class="upcap t">${dim}${dim&&u.size?" · ":""}${u.size?fmtSize(u.size):""}${u.ts?" · "+esc(String(u.ts).slice(5,16)):""}</div>
+      <div class="upcap t">${dim}${dim&&(u.osize||u.size)?" · ":""}${(u.osize||u.size)?fmtSize(u.osize||u.size):""}${u.orig_ext?"":" · 僅1024"}${u.ts?" · "+esc(String(u.ts).slice(5,16)):""}</div>
       <div class="uprow">
         <button onclick="importUploads(['${u.id}'])">匯入</button>
         <button class="dl" onclick="delUploads(['${u.id}'])">刪除</button>
@@ -2063,9 +2140,10 @@ window.openUpload = i => {
   const u = uploads[i]; if (!u) return;
   mlbUpload = u.id;
   $("#mlbName").textContent = u.name || "(未命名)";
-  $("#mlbMeta").textContent = `${(u.w&&u.h)?u.w+"×"+u.h+" · ":""}${u.size?fmtSize(u.size)+" · ":""}被 ${u.refs||0} 筆歷史紀錄使用 · ${u.ts||""}`;
-  $("#mlbDl").href = uUrl(u); $("#mlbDl").setAttribute("download", u.name || (u.id + ".jpg"));
-  $("#mlbBody").innerHTML = `<img src="${uUrl(u)}">`;
+  const odim = (u.ow&&u.oh) ? `${u.ow}×${u.oh}（原圖）` : ((u.w&&u.h) ? `${u.w}×${u.h}（僅 1024 工作副本）` : "");
+  $("#mlbMeta").textContent = `${odim?odim+" · ":""}${(u.osize||u.size)?fmtSize(u.osize||u.size)+" · ":""}被 ${u.refs||0} 筆歷史紀錄使用 · ${u.ts||""}`;
+  $("#mlbDl").href = uOrigUrl(u); $("#mlbDl").setAttribute("download", u.name || (u.id + "." + (u.orig_ext||"jpg")));
+  $("#mlbBody").innerHTML = `<img src="${uOrigUrl(u)}">`;
   $("#mlb").classList.add("on");
 };
 /* import: fetch the stored originals -> File objects -> the same add() path a drag-drop uses */
@@ -2075,8 +2153,8 @@ window.importUploads = async ids => {
   for (const id of ids){
     const u = uploads.find(x => x.id === id); if (!u) continue;
     try{
-      const blob = await (await fetch(uUrl(u))).blob();
-      const name = u.name || (id.slice(0,8) + ".jpg");
+      const blob = await (await fetch(uOrigUrl(u))).blob();      // original bytes -> encode() keeps them for ComfyUI
+      const name = u.name || (id.slice(0,8) + "." + (u.orig_ext || "jpg"));
       files.push(new File([blob], name, {type: blob.type || "image/jpeg"}));
     }catch(e){}
   }
