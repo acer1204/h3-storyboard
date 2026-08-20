@@ -245,6 +245,13 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
 .upcell:hover{border-color:var(--acc);transform:translateY(-2px);box-shadow:var(--shadow)}
 .upcell.sel{border-color:var(--acc);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 45%,transparent)}
 .selck{width:16px;height:16px;accent-color:var(--acc);cursor:pointer;flex:none;margin-right:2px}
+.rbtn.on{border-color:var(--acc);color:var(--acc);background:color-mix(in srgb,var(--acc) 10%,transparent)}
+.fbchip{font-size:11.5px;padding:3px 9px;border:1px solid var(--line);border-radius:99px;cursor:pointer;
+  background:none;color:var(--mut)}
+.fbchip.on{border-color:var(--acc);color:var(--acc);background:color-mix(in srgb,var(--acc) 10%,transparent)}
+.hcell .rmark{position:absolute;left:7px;top:7px;font-size:13px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.hablist{font-size:12.5px;line-height:1.9;color:var(--mut)}
+.hablist b{color:var(--fg);font-weight:500;font-family:ui-monospace,Consolas,monospace}
 .upcell .upprev{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:var(--code);cursor:pointer}
 .upcell .upck{position:absolute;top:7px;left:7px;width:20px;height:20px;border-radius:6px;border:1.5px solid rgba(255,255,255,.75);
   background:rgba(20,18,14,.55);backdrop-filter:blur(3px);display:grid;place-items:center;cursor:pointer;color:#fff;font-size:13px;line-height:1}
@@ -486,6 +493,18 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
   </div>
 
   <div class="panel">
+    <h3>🌀 慣性抑制（自動）</h3>
+    <p class="ph">掃描近期紀錄，找出「跨許多<b>不同</b>圖片」重複出現的動作片語 — 那些不是從圖片來的，是模型的慣性。
+      開啟後會在生成時提醒模型避開這些片語（除非圖片真的需要）。硬切與一鏡到底分開統計，各取每張圖的最新版本、最多 30 張。</p>
+    <div class="row">
+      <label style="margin:0">狀態</label>
+      <select id="habit" style="max-width:120px"><option value="1" selected>開啟</option><option value="0">關閉</option></select>
+      <button class="ghost mini" id="habitref">重新掃描</button>
+    </div>
+    <div class="hablist" id="habitlist" style="margin-top:10px">尚未掃描</div>
+  </div>
+
+  <div class="panel">
     <h3>System prompt <span class="modetag" id="spmodetag"></span></h3>
     <p class="ph">兩種分鏡模式各有<b>獨立的一套</b> system prompt 庫；上面切換模式，這裡的清單就跟著換。
       左邊勾選哪一組，產生時就用哪一組。編輯內容會自動保存到伺服器。</p>
@@ -601,7 +620,7 @@ const onServer = location.protocol.startsWith("http");
 /* ================= 設定持久化 ================= */
 const SKEY="h3.settings.v1", SPKEY="h3.sp.v1", VKEY="h3.view.v1";
 const FIELDS={server:"#server",dur:"#dur",temp:"#temp",topp:"#topp",think:"#think",tr:"#tr",
-              retry:"#retry",retrylvl:"#retrylvl",mode:"#mode"};
+              retry:"#retry",retrylvl:"#retrylvl",mode:"#mode",habit:"#habit"};
 const store={
   get(k){try{return localStorage.getItem(k)}catch(e){return null}},
   set(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}},
@@ -1019,6 +1038,41 @@ function loraApply(content){
   return {content: r.content, lora: {preset: loraActive().name, main: cfg.mainText, report: r.report, fixes: r.fixes, issues: r.issues.concat(probs), forced,
           note_hits: loraNoteHits()}};
 }
+/* ---------------- 慣性抑制（第 1 層）：跨圖高頻動作片語 -> 生成時注入避開清單 ---------------- */
+let HABITS = {cuts: null, onetake: null, ts: 0};
+async function refreshHabits(force){
+  if (!onServer) return;
+  if (!force && Date.now() - HABITS.ts < 5 * 60e3) return;
+  try{
+    const [c, o] = await Promise.all([
+      fetch("/api/habits?mode=cuts").then(r => r.json()),
+      fetch("/api/habits?mode=onetake").then(r => r.json())]);
+    HABITS.cuts = c; HABITS.onetake = o; HABITS.ts = Date.now();
+    renderHabits();
+  }catch(e){}
+}
+function renderHabits(){
+  const el = $("#habitlist"); if (!el) return;
+  const one = (name, h) => {
+    if (!h) return `<div>${name}：尚未掃描</div>`;
+    if (!(h.phrases||[]).length) return `<div>${name}：${esc(h.note || `分析了 ${h.images} 張，沒有超過門檻的慣性片語 ✓`)}</div>`;
+    return `<div>${name}（${h.images} 張不同圖片）：` +
+      h.phrases.map(x => `<b>${esc(x.p)}</b> <span class="hint">${x.n}/${h.images}</span>`).join("、") + `</div>`;
+  };
+  el.innerHTML = one("硬切", HABITS.cuts) + one("一鏡到底", HABITS.onetake);
+}
+function habitSuffix(){
+  const sel = $("#habit"); if (sel && sel.value === "0") return "";
+  const h = HABITS[curMode()];
+  if (!h || !(h.phrases||[]).length) return "";
+  return "\n\n# ANTI-HABIT — auto-generated from this user's recent results\n"
+    + "The phrases below appeared across many DIFFERENT recent images, which means they came from\n"
+    + "habit rather than from the image. In this clip do NOT use them, or any close paraphrase,\n"
+    + "unless this specific image clearly calls for it. Find this image's own action instead:\n"
+    + h.phrases.map(x => `- "${x.p}" (${x.n} of ${h.images} recent clips)`).join("\n");
+}
+$("#habitref") && ($("#habitref").onclick = () => { $("#habitlist").textContent = "掃描中…"; refreshHabits(true); });
+
 function loraSystemSuffix(){ const cfg = loraCfg(); return cfg ? "\n" + H3Lora.promptBlock(cfg, loraForced()) : ""; }
 function loraBadges(lo){
   if (!lo) return "";
@@ -1460,7 +1514,7 @@ function repair(c){
 }
 async function genOnce(imgUrl, utext, target, wantShots){
   const j = await chat([
-    {role:"system", content: activeText() + loraSystemSuffix()},
+    {role:"system", content: activeText() + loraSystemSuffix() + habitSuffix()},
     {role:"user", content:[{type:"image_url",image_url:{url:imgUrl}},
                            {type:"text",text:utext}]}
   ], {max:4000});
@@ -1753,6 +1807,7 @@ async function record(it){
         ...(() => { const c = it.ctx || genContext(); return {mode:c.mode, prompt_id:c.prompt_id, prompt_name:c.prompt_name,
                      lora: c.lora ? {...c.lora, report:(it.lora||{}).report||null, issues:(it.lora||{}).issues||[]} : null}; })()})});
     loadHist();
+    refreshHabits(true);
     if ($("#navUploads")) fetch(UAPI).then(r=>r.json()).then(u=>{ uploads = u; $("#navUploads").textContent = u.length || ""; }).catch(()=>{});
   }catch(e){}
 }
@@ -1788,6 +1843,7 @@ function renderHist(){
     return `<button class="hcell" onclick="openGroup(${i})" title="${esc(g.image)} · ${total} 個版本">
       <span class="sdot ${d}"></span>
       <span class="mtag ${hMode(r)==="onetake"?"ot":""}">${hMode(r)==="onetake"?"一鏡":"硬切"}</span>
+      ${r.rating ? `<span class="rmark">${r.rating==="up"?"👍":"👎"}</span>` : ""}
       ${total > 1 ? `<span class="vcount">${total} 版</span>` : ""}
       <img src="/api/thumb/${r.id}.jpg" loading="lazy" onerror="this.style.visibility='hidden'">
       <div class="cap">${esc(g.image)}</div>
@@ -1846,6 +1902,19 @@ window.openRec = async id => {
           ? "重跑會用當時的原圖、分鏡模式、system prompt 與 LoRA 設定，結果另存為新版本；不會動到目前的設定。"
           : "這筆紀錄沒有保存原圖（舊版本存的），只能從「上傳並處理」重新跑。"}</span>
           <span id="mcstat"></span></p>
+        <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
+          <div class="row" style="gap:7px">
+            <span class="flab">評價（看完影片後）</span>
+            <button class="mini rbtn" id="mrup">👍 效果好</button>
+            <button class="mini rbtn" id="mrdn">👎 不好</button>
+          </div>
+          <div class="row" id="mtags" style="gap:6px;margin-top:7px"></div>
+          <div class="row" style="gap:7px;margin-top:7px">
+            <input type="text" id="mfb" placeholder="一句話備註（選填，之後「整理經驗」會用到）" style="flex:1;min-width:200px">
+            <button class="mini" id="mfbsave">儲存評價</button>
+            <span class="hint" id="mfbstat"></span>
+          </div>
+        </div>
       </div>
     </div>
     ${iss?`<ul class="issues">${iss}</ul>`:""}
@@ -1857,6 +1926,33 @@ window.openRec = async id => {
     document.querySelectorAll("#msseg button").forEach(x =>
       x.classList.toggle("on", +x.dataset.n === mShots));
   });
+  /* ---- 評價 ---- */
+  const FB_TAGS = ["劇情不合理","動作太小","動作突兀","人物/場景跑掉","畫面模糊","運鏡怪","音效/音樂怪"];
+  let mRating = r.rating || "", mTags = new Set(r.fb_tags || []);
+  $("#mfb").value = r.fb_note || "";
+  const drawRate = () => {
+    $("#mrup").classList.toggle("on", mRating === "up");
+    $("#mrdn").classList.toggle("on", mRating === "down");
+    $("#mtags").innerHTML = FB_TAGS.map(t =>
+      `<button class="fbchip ${mTags.has(t)?"on":""}" data-t="${t}">${t}</button>`).join("");
+    document.querySelectorAll("#mtags .fbchip").forEach(b => b.onclick = () => {
+      const t = b.dataset.t; mTags.has(t) ? mTags.delete(t) : mTags.add(t); drawRate(); });
+  };
+  drawRate();
+  $("#mrup").onclick = () => { mRating = mRating === "up" ? "" : "up"; drawRate(); };
+  $("#mrdn").onclick = () => { mRating = mRating === "down" ? "" : "down"; drawRate(); };
+  $("#mfbsave").onclick = async () => {
+    $("#mfbstat").textContent = "儲存中…";
+    try{
+      const j = await (await fetch(API + "/" + id + "/rate", {method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({rating: mRating, fb_tags: [...mTags], fb_note: $("#mfb").value.trim()})})).json();
+      if (j.error) throw new Error(j.error);
+      $("#mfbstat").textContent = "已儲存 ✓";
+      const row = hist.find(x => x.id === id); if (row) row.rating = mRating;
+      renderHist();
+    }catch(e){ $("#mfbstat").textContent = "失敗：" + e.message; }
+  };
   $("#mrerun").disabled = !hasFull;
   $("#mrerun").onclick = () => rerunRecord(r, mShots);
   $("#mcopy").onclick=()=>navigator.clipboard.writeText(r.content);
@@ -2042,6 +2138,7 @@ ${r.trash}
 如需復原，把裡面的檔案搬回 history/ 後重新啟動伺服器。`);
   loadHist(); };
 loadHist();
+refreshHabits(true);
 renderPrompts();   // 先同步畫出內建，再去伺服器補其他組
 loadPrompts().then(() => { setMode(curMode()); loadLoras(); });
 

@@ -32,6 +32,8 @@ H3 Prompt 批次產生器 - 本機服務
   GET    /api/uploads/<hash>.jpg        -> 1024px 工作副本
   GET    /api/uploads/<hash>.orig.<ext> -> 全解析度原圖（送 ComfyUI 用）
   GET    /api/orig/<id>.<ext>           -> 歷史紀錄的全解析度原圖
+  POST   /api/history/<id>/rate -> 評分 {rating: up|down|"", fb_tags:[...], fb_note:"..."}
+  GET    /api/habits?mode=cuts|onetake  -> 慣性偵測：跨不同圖片高頻出現的動作片語
   GET    /api/uploads/<hash>.thumb.jpg  -> 縮圖
   DELETE /api/uploads/<hash>              -> 只從上傳庫移除（歷史保留、upload_id 保留；同圖再上傳會自動歸位）
   DELETE /api/uploads/<hash>?cascade=1    -> 連同所有引用它的歷史紀錄一起刪
@@ -431,6 +433,157 @@ def comfy_upload(name, blob):
     return json.loads(_u.urlopen(req, timeout=60).read())
 
 
+# ============================== 慣性偵測（第 1 層，純統計） ==============================
+# 目標：找出「跨許多**不同**圖片」重複出現的動作片語 — 那些不是從圖片來的，是模型的慣性。
+# 同一張圖的多個版本只算一次（最新版），硬切 / 一鏡到底分開統計。
+
+_HB_SENT_DROP = re.compile(
+    r"^\s*(?:the camera\b|no additional people|no people beyond|preserve\b|same (?:person|woman|man)\b"
+    r"|her lips move|his lips move|their lips move|for the target video)", re.I)
+_HB_STRIP = [
+    (re.compile(r"^.*?\[Shot 1\]\s*", re.S), ""),            # alignment line / LoRA MAIN 前綴
+    (re.compile(r"\[Shot \d+\]"), " "),
+    (re.compile(r"At \d{2}:\d{2}\.\d{3},?"), " "),
+    (re.compile(r"<d>.*?</d>", re.S), " "),                     # 台詞內容不算動作
+    (re.compile(r"<[^>]{1,40}>"), " "),                         # <Picture 1> 等標籤
+    (re.compile(r"\(S\d+(?:,S\d+)*\)"), " "),
+    # 身分錨定頭（風格宣告 + 構圖 + 識別句）與 preserving 子句是格式，不是劇情
+    (re.compile(r"^[^.]*?(?:shown in|as established by)\s*(?:[Pp]icture\s*\d+)?,?\s*"), ""),
+    (re.compile(r",?\s*preserving\b[^.]*"), ""),
+]
+# 這些詞屬於格式樣板（風格宣告/構圖/運鏡詞彙），不是「劇情動作」，含它們的片語不列入
+_HB_BLOCK = {"camera", "amplitude", "speed", "shot", "picture", "animated", "anime", "cinematic",
+             "live-action", "illustration", "style", "cg", "claymation", "watercolor", "framing",
+             "close-up", "medium", "waist-up", "wide", "static", "preserve", "appearance",
+             "clothing", "layout", "additional", "people", "lips", "sync", "spoken", "voiceover",
+             "seconds", "timestamp", "integrated_multimodal_description", "overall_soundscape",
+             "non_diegetic_music", "cut", "cuts", "hard", "established", "referenced", "aligns",
+             "target", "video", "shown", "frame", "angle", "view", "profile"}
+_HB_IDTAG = re.compile(r"\b(?:woman|women|man|men|girl|girls|boy|figure|lady|maid|character) in (?:the|a|an|her|his)\b")
+_HB_FUNC = {"the", "a", "an", "her", "his", "their", "she", "he", "they", "it", "its", "and", "or",
+            "with", "as", "to", "of", "in", "on", "at", "into", "from", "for", "then", "while",
+            "is", "are", "was", "were", "one", "same", "that", "this", "up", "down", "out", "off",
+            "by", "before", "after", "over", "under", "toward", "towards", "against", "across",
+            "around", "through", "during", "onto", "beside", "behind", "still", "now", "just",
+            "slightly", "moment", "later", "finally", "begins", "starts", "continues"}
+
+
+def _habit_prose(content):
+    """imd 欄位 -> 只留劇情動作的散文（去掉運鏡句、鎖定句、台詞、標記）。"""
+    imd = content or ""
+    i = imd.find("integrated_multimodal_description:")
+    j = imd.find("overall_soundscape:")
+    if i >= 0:
+        imd = imd[i + len("integrated_multimodal_description:"): j if j > i else None]
+    for rx, sub in _HB_STRIP:
+        imd = rx.sub(sub, imd)
+    sents = [x.strip() for x in re.split(r"(?<=[.!?])\s+", imd) if x.strip()]
+    return " ".join(x for x in sents if not _HB_SENT_DROP.match(x))
+
+
+def _habit_grams(prose):
+    """一份文件的 3–5 字 n-gram 集合（正規化小寫；擋樣板詞與純虛詞片語）。"""
+    words = re.findall(r"[a-z][a-z'-]*", prose.lower())
+    out = set()
+    for n in (3, 4, 5):
+        for k in range(len(words) - n + 1):
+            g = words[k:k + n]
+            if any(w in _HB_BLOCK for w in g):
+                continue
+            if sum(1 for w in g if w not in _HB_FUNC) < 2:
+                continue
+            gs = " ".join(g)
+            if _HB_IDTAG.search(gs):                   # 識別句（the woman in the …）是規定格式，不是慣性
+                continue
+            out.add(gs)
+    return out
+
+
+def habit_stats(mode, max_images=30, min_images=5):
+    """回傳 {images, phrases:[{p, n, pct}]} — 只看每張圖的最新版本，最多 max_images 張。"""
+    rows = load_index()
+    docs = {}
+    for row in rows:                                   # index 新的在前
+        if (row.get("mode") or "cuts") != mode:
+            continue
+        key = row.get("upload_id") or row.get("image") or row.get("id")
+        if key in docs:
+            continue
+        rp = os.path.join(HIST, str(row.get("id")) + ".json")
+        try:
+            with open(rp, encoding="utf-8") as f:
+                rec = json.load(f)
+        except Exception:
+            continue
+        prose = _habit_prose(rec.get("content", ""))
+        docs[key] = (_habit_grams(prose), " ".join(re.findall(r"[a-z][a-z'-]*", prose.lower())))
+        if len(docs) >= max_images:
+            break
+    n = len(docs)
+    if n < min_images:
+        return {"images": n, "phrases": [], "note": "紀錄不足 %d 張不同圖片，暫不啟用" % min_images}
+    df = {}
+    for grams, _ in docs.values():
+        for g in grams:
+            df[g] = df.get(g, 0) + 1
+    texts = [t for _, t in docs.values()]
+
+    def dfreq(g):
+        pat = " " + g + " "
+        return sum(1 for t in texts if pat in (" " + t + " "))
+
+    def expand(g):
+        """沿實際文本左右擴張，只要擴張後的片語出現次數仍過線就繼續 — 還原完整的慣性句。"""
+        for _ in range(12):
+            grew = False
+            for side in ("right", "left"):
+                votes = {}
+                for t in texts:
+                    tt = " " + t + " "
+                    start = 0
+                    while True:
+                        i = tt.find(" " + g + " ", start)
+                        if i < 0:
+                            break
+                        if side == "right":
+                            rest = tt[i + len(g) + 2:].split(" ", 1)[0]
+                        else:
+                            rest = tt[:i].rstrip().rsplit(" ", 1)[-1]
+                        if rest:
+                            votes[rest] = votes.get(rest, 0) + 1
+                        start = i + 1
+                if not votes:
+                    continue
+                w = max(votes, key=votes.get)
+                g2 = (g + " " + w) if side == "right" else (w + " " + g)
+                if dfreq(g2) >= thresh:
+                    g = g2
+                    grew = True
+            if not grew:
+                break
+        return g
+    thresh = max(3, -(-n * 30 // 100))                 # ceil(30%)
+    cands = sorted(((g, c) for g, c in df.items() if c >= thresh),
+                   key=lambda x: (-x[1], -len(x[0].split())))
+    # 同一個慣性會產生一整串滑動重疊的 n-gram（turns to face the / to face the lens ...）
+    # 用「共享任何連續 2 字窗」判定重疊，每個慣性家族只留出現次數最高的一條代表
+    def shingles(g):
+        w = g.split()
+        return {" ".join(w[i:i + 2]) for i in range(len(w) - 1)}
+    kept = []
+    for g, c in cands:
+        if any(g in kg for kg, _, _ in kept):          # 已被更長的擴張句涵蓋
+            continue
+        sh = shingles(g)
+        if any(sh & ksh for _, _, ksh in kept):
+            continue
+        eg = expand(g)
+        kept.append((eg, dfreq(eg), shingles(eg)))
+    kept = [(g, c) for g, c, _ in kept]
+    kept.sort(key=lambda x: -x[1])
+    return {"images": n, "phrases": [{"p": g, "n": c, "pct": round(c * 100 / n)} for g, c in kept[:8]]}
+
+
 def comfy_template_from_json(body):
     """把使用者上傳的 workflow JSON 正規化成模板並驗證。
     接受：本工具的抓取格式 {"graph", "extra_data"}、或 ComfyUI「Export (API)」的節點圖。
@@ -717,6 +870,16 @@ class H(SimpleHTTPRequestHandler):
             self.path = "/" + PAGE
             return SimpleHTTPRequestHandler.do_GET(self)
 
+        if p == "/api/habits":
+            q = parse_qs(urlparse(self.path).query)
+            mode = (q.get("mode") or ["cuts"])[0]
+            if mode not in ("cuts", "onetake"):
+                return self.send_json({"error": "mode 必須是 cuts 或 onetake"}, 400)
+            try:
+                return self.send_json(habit_stats(mode))
+            except Exception as e:
+                return self.send_json({"error": "分析失敗: %s" % e}, 500)
+
         if p == "/api/history":
             return self.send_json(load_index())
 
@@ -924,6 +1087,38 @@ class H(SimpleHTTPRequestHandler):
                 save_index([])
             return self.send_json({"ok": True, "moved": moved, "trash": trash,
                                    "restore_hint": "move the files in %s back into history/ and restart" % trash})
+
+        m = re.match(r"^/api/history/([^/]+)/rate$", p)
+        if m:
+            rid = unquote(m.group(1))
+            if not ID_RE.match(rid):
+                return self.send_json({"error": "bad id"}, 400)
+            try:
+                body = self.read_json()
+            except Exception as e:
+                return self.send_json({"error": "bad json: %s" % e}, 400)
+            rating = str(body.get("rating") or "")
+            if rating not in ("up", "down", ""):
+                return self.send_json({"error": "rating 必須是 up / down / 空字串"}, 400)
+            tags = [str(t)[:30] for t in (body.get("fb_tags") or []) if str(t).strip()][:10]
+            note = str(body.get("fb_note") or "")[:500]
+            fp = os.path.join(HIST, rid + ".json")
+            if not os.path.exists(fp):
+                return self.send_json({"error": "not found"}, 404)
+            with LOCK:
+                with open(fp, encoding="utf-8") as f:
+                    rec = json.load(f)
+                rec["rating"], rec["fb_tags"], rec["fb_note"] = rating, tags, note
+                rec["fb_ts"] = time.strftime("%Y-%m-%d %H:%M:%S") if (rating or tags or note) else ""
+                with open(fp, "w", encoding="utf-8") as f:
+                    json.dump(rec, f, ensure_ascii=False, indent=1)
+                rows = load_index()
+                for row in rows:
+                    if row.get("id") == rid:
+                        row["rating"] = rating
+                        break
+                save_index(rows)
+            return self.send_json({"ok": True, "rating": rating, "fb_tags": tags})
 
         if p == "/api/comfy/template":
             try:
@@ -1146,6 +1341,7 @@ class H(SimpleHTTPRequestHandler):
             rows = load_index()
             rows.insert(0, {k: rec[k] for k in
                             ("id", "ts", "image", "dur", "state", "elapsed_s", "mode", "upload_id")}
+                        | {"rating": ""}
                         | {"nerr": len(rec["errors"]), "nwarn": len(rec["warnings"]),
                            "full": os.path.exists(os.path.join(HIST, rid + ".full.jpg")),
                            "orig_ext": orig_ext,
