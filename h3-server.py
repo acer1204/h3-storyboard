@@ -17,6 +17,7 @@ H3 Prompt 批次產生器 - 本機服務
   POST   /api/comfy/run         -> 送出生成：換圖 + 三欄位，其餘照模板
   GET    /api/comfy/status/<id> -> 查佇列/執行/完成狀態
   POST   /api/comfy/refresh     -> 以 ComfyUI 最近一次成功生成更新模板
+  POST   /api/comfy/template    -> 直接上傳 workflow JSON 當模板（ComfyUI 選單 Export (API) 的檔案）
 
   GET    /api/media             -> 媒體庫檔案清單（ComfyUI output）
   GET    /api/media/file/<path> -> 取檔（支援 Range，?dl=1 強制下載）
@@ -428,6 +429,50 @@ def comfy_upload(name, blob):
     req = _u.Request(COMFY_URL + "/upload/image", data=body.getvalue(),
                      headers={"Content-Type": "multipart/form-data; boundary=" + bnd})
     return json.loads(_u.urlopen(req, timeout=60).read())
+
+
+def comfy_template_from_json(body):
+    """把使用者上傳的 workflow JSON 正規化成模板並驗證。
+    接受：本工具的抓取格式 {"graph", "extra_data"}、或 ComfyUI「Export (API)」的節點圖。
+    UI 格式（Save 存的 nodes/links 檔）無法直接送生成，回明確指引。"""
+    if not isinstance(body, dict):
+        raise ValueError("不是 JSON 物件")
+    if isinstance(body.get("graph"), dict):
+        g, extra = body["graph"], (body.get("extra_data") if isinstance(body.get("extra_data"), dict) else {})
+    elif isinstance(body.get("nodes"), list):
+        raise ValueError("這是 UI 格式的 workflow（Save 存出來的 nodes/links）。"
+                         "請在 ComfyUI 左上選單用 Export (API) 匯出再上傳，"
+                         "或先成功跑一次後按「用最近一次成功生成更新模板」。")
+    elif body and all(isinstance(v, dict) and "class_type" in v for v in body.values()):
+        g, extra = body, {}
+    else:
+        raise ValueError("看不懂的格式：既不是 Export (API) 的節點圖，也不是本工具的模板檔")
+    director = None
+    for node in g.values():
+        if node.get("class_type") == "MiniMaxH3Director":
+            director = node
+    if director is None:
+        raise ValueError("工作流裡沒有 MiniMaxH3Director 節點")
+    ins = director.get("inputs", {})
+    for k in ("builder_state", "timeline_data", "mode"):
+        if k not in ins:
+            raise ValueError("MiniMaxH3Director 缺少輸入 %s（請用 Export (API) 匯出，不要手改）" % k)
+    try:
+        tl = json.loads(ins.get("timeline_data") or "{}")
+    except Exception:
+        raise ValueError("timeline_data 不是合法 JSON")
+    if not any(it.get("type") == "image" and it.get("enabled", True) for it in tl.get("items", [])):
+        raise ValueError("timeline 裡沒有啟用的圖片項目 — 模板必須是一個帶參考圖的 I2VA 工作流")
+    if os.path.exists(COMFY_TEMPLATE):
+        try:
+            os.replace(COMFY_TEMPLATE, COMFY_TEMPLATE + ".bak")
+        except OSError:
+            pass
+    with open(COMFY_TEMPLATE, "w", encoding="utf-8") as f:
+        json.dump({"graph": g, "extra_data": extra}, f, ensure_ascii=False, indent=1)
+    return {"nodes": len(g), "mode": ins.get("mode", "?"),
+            "has_ui_meta": bool(((extra.get("extra_pnginfo") or {}).get("workflow") or {}).get("nodes")),
+            "backup": os.path.exists(COMFY_TEMPLATE + ".bak")}
 
 
 def comfy_capture_template():
@@ -879,6 +924,19 @@ class H(SimpleHTTPRequestHandler):
                 save_index([])
             return self.send_json({"ok": True, "moved": moved, "trash": trash,
                                    "restore_hint": "move the files in %s back into history/ and restart" % trash})
+
+        if p == "/api/comfy/template":
+            try:
+                body = self.read_json()
+            except Exception as e:
+                return self.send_json({"error": "bad json: %s" % e}, 400)
+            try:
+                info = comfy_template_from_json(body)
+            except ValueError as e:
+                return self.send_json({"error": str(e)}, 400)
+            except Exception as e:
+                return self.send_json({"error": "匯入失敗: %s" % e}, 500)
+            return self.send_json(info)
 
         if p == "/api/comfy/refresh":
             try:

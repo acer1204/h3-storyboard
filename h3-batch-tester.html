@@ -472,9 +472,11 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
   <div class="panel">
     <h3>ComfyUI 整合</h3>
     <p class="ph">「送 ComfyUI 生成」用的工作流模板 = ComfyUI 最近一次成功的生成。
-      在 ComfyUI 調好參數、成功跑一次後，按下面的按鈕更新模板；之後每次送出只替換圖片（全解析度原圖）、三個欄位與影片秒數。</p>
+      模板兩種來源：在 ComfyUI 成功跑一次後按「用最近一次成功生成更新模板」，或直接上傳 ComfyUI 選單 <b>Export (API)</b> 匯出的 workflow JSON（瀏覽器「Save」存的 UI 格式不行，會提示）。之後每次送出只替換圖片（全解析度原圖）、三個欄位與影片秒數。</p>
     <div class="row">
       <button class="ghost mini" id="ctpl">用最近一次成功生成更新模板</button>
+      <button class="ghost mini" id="ctplfilebtn">從 workflow.json 匯入模板</button>
+      <input type="file" id="ctplfile" accept=".json,application/json" style="display:none">
       <span class="status" id="ctplstat" style="margin:0"></span>
     </div>
   </div>
@@ -2079,6 +2081,23 @@ window.comfyFromItem = (k, btnEl) => {
   comfySend({image: it.orig || it.full, dur: $("#dur").value, ...comfyFields(it.content)}, stat, btnEl);
 };
 
+$("#ctplfilebtn").onclick = () => $("#ctplfile").click();
+$("#ctplfile").onchange = async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  $("#ctplstat").textContent = "匯入中…";
+  let body;
+  try{ body = JSON.parse(await f.text()); }
+  catch(err){ $("#ctplstat").textContent = "失敗：檔案不是合法 JSON"; return; }
+  try{
+    const r = await fetch(CAPI + "/template", {method:"POST",
+      headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+    const j = await r.json();
+    $("#ctplstat").textContent = j.error
+      ? "失敗：" + j.error
+      : `已匯入 ${f.name}（${j.nodes} 節點，mode ${j.mode}${j.has_ui_meta ? "" : "，無 UI metadata — 影片不會內嵌工作流，僅此差別"}）`;
+  }catch(err){ $("#ctplstat").textContent = "失敗：" + err.message; }
+};
 $("#ctpl").onclick = async () => {
   $("#ctplstat").textContent = "更新中…";
   try{
