@@ -1158,6 +1158,7 @@ const REFLECT_SYS = `你是影片 prompt 生成系統的「經驗整理員」。
 - 只歸納「重複出現的模式」或明確可通用化的問題；只針對單一圖片的一次性反饋直接忽略
 - 負面反饋（rating=down）歸納成「避免 X」規則；正面反饋（rating=up）帶備註且方向明確時，歸納成「保持 X」規則（例如使用者稱讚動作從圖片長出來 → 規則要求動作必須源自圖片內容）；沒有備註的 up 只當對照參考
 - 規則管內容（劇情合理性、動作、情緒、與圖片的關聯），不管格式（格式另有驗證器）
+- 規則不得與官方格式規範衝突。特別注意：non_diegetic_music 只能用樂器/速度/節奏/力度描述、禁止情緒形容詞——任何配樂相關規則必須用這些維度表達（例如「激烈動作配快節奏強力度」），絕不能要求「配樂情緒」
 - 不要與現有規則重複或近似
 - mode：問題只出現在某一模式就標該模式（"cuts"＝硬切、"onetake"＝一鏡到底），否則 "both"
 - 每條規則：en（英文一句、命令式、具體可執行）、zh（中文一句給使用者看）、mode
@@ -1692,12 +1693,21 @@ function repair(c){
     } }
   return head + body;
 }
-async function genOnce(imgUrl, utext, target, wantShots){
-  const j = await chat([
+async function genOnce(imgUrl, utext, target, wantShots, prev){
+  const msgs = [
     {role:"system", content: activeText() + loraSystemSuffix() + lessonSuffix()},
     {role:"user", content:[{type:"image_url",image_url:{url:imgUrl}},
                            {type:"text",text:utext}]}
-  ], {max:4000});
+  ];
+  /* corrective retry: show the model its previous output and exactly what failed,
+     instead of blind re-rolls that repeat the same mistake */
+  if (prev && prev.issues.length){
+    msgs.push({role:"assistant", content: prev.content});
+    msgs.push({role:"user", content: "你的上一版輸出沒有通過檢查：\n"
+      + prev.issues.join("\n")
+      + "\n\n重新輸出**完整**的 prompt（三個欄位都要），只修正上面列的問題，其他內容保持不變。只輸出修正後的 prompt，不要任何說明。"});
+  }
+  const j = await chat(msgs, {max:4000});
   const raw = j.choices[0].message.content || "";
   const content = repair(trim(raw));
   const v = validate(content, target, wantShots);
@@ -1705,12 +1715,15 @@ async function genOnce(imgUrl, utext, target, wantShots){
 }
 async function genWithRetry(imgUrl, utext, target, wantShots, onStep){
   const cfg = retryCfg();
-  let best = null, attempts = 0;
+  let best = null, attempts = 0, prev = null;
   for (let a = 0; a <= cfg.max; a++){
     attempts = a + 1;
-    if (a > 0 && onStep) onStep(`重試 ${a}/${cfg.max}`);
+    if (a > 0 && onStep) onStep(`重試 ${a}/${cfg.max}（帶著問題清單修正）`);
     if (best && (abort || hregenAbort)) break;
-    const c = await genOnce(imgUrl, utext, target, wantShots);
+    const c = await genOnce(imgUrl, utext, target, wantShots, prev);
+    prev = {content: c.content,
+            issues: [...c.v.E.map(e => "[錯誤] " + e),
+                     ...(cfg.lvl === "ok" ? c.v.W.map(w => "[警告] " + w) : [])]};
     if (!best || c.score < best.score) best = c;
     if (isClean(c.v, cfg.lvl)) { best = c; break; }
     if (abort || hregenAbort) break;
