@@ -34,6 +34,11 @@ H3 Prompt 批次產生器 - 本機服務
   GET    /api/orig/<id>.<ext>           -> 歷史紀錄的全解析度原圖
   POST   /api/history/<id>/rate -> 評分 {rating: up|down|"", fb_tags:[...], fb_note:"..."}
   GET    /api/habits?mode=cuts|onetake  -> 慣性偵測：跨不同圖片高頻出現的動作片語
+  GET    /api/lessons           -> 經驗庫清單
+  POST   /api/lessons           -> 新增/更新 {id?, en, zh, mode, enabled, src}
+  DELETE /api/lessons/<id>      -> 刪除
+  GET    /api/lessons/pending   -> 已評分、尚未整理的反饋（給「整理經驗」用）
+  POST   /api/lessons/mark      -> {ids:[...]} 把反饋標成已整理
   GET    /api/uploads/<hash>.thumb.jpg  -> 縮圖
   DELETE /api/uploads/<hash>              -> 只從上傳庫移除（歷史保留、upload_id 保留；同圖再上傳會自動歸位）
   DELETE /api/uploads/<hash>?cascade=1    -> 連同所有引用它的歷史紀錄一起刪
@@ -57,6 +62,9 @@ PROMPTS = os.path.join(ROOT, "prompts")
 PINDEX = os.path.join(PROMPTS, "index.json")
 LORAS = os.path.join(ROOT, "loras")
 LINDEX = os.path.join(LORAS, "index.json")
+LESSONS_DIR = os.path.join(ROOT, "lessons")
+LESSONS_FILE = os.path.join(LESSONS_DIR, "lessons.json")
+os.makedirs(LESSONS_DIR, exist_ok=True)
 PAGE = "h3-batch-tester.html"
 # ---------------------------------------------------------------- config
 # Personal hosts/paths live in config.json (git-ignored). config.example.json documents the keys.
@@ -589,6 +597,20 @@ def habit_stats(mode, max_images=30, min_images=5):
     return {"images": n, "phrases": [{"p": g, "n": c, "pct": round(c * 100 / n)} for g, c in kept[:8]]}
 
 
+def load_lessons():
+    try:
+        with open(LESSONS_FILE, encoding="utf-8") as f:
+            v = json.load(f)
+        return v if isinstance(v, list) else []
+    except Exception:
+        return []
+
+
+def save_lessons(rows):
+    with open(LESSONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(rows, f, ensure_ascii=False, indent=1)
+
+
 def comfy_template_from_json(body):
     """把使用者上傳的 workflow JSON 正規化成模板並驗證。
     接受：本工具的抓取格式 {"graph", "extra_data"}、或 ComfyUI「Export (API)」的節點圖。
@@ -875,6 +897,40 @@ class H(SimpleHTTPRequestHandler):
             self.path = "/" + PAGE
             return SimpleHTTPRequestHandler.do_GET(self)
 
+        if p == "/api/lessons":
+            return self.send_json(load_lessons())
+
+        if p == "/api/lessons/pending":
+            rows = load_index()
+            items = []
+            for row in rows:                                # 新的在前
+                if not (row.get("has_fb") or row.get("rating")):
+                    continue
+                if row.get("fb_done"):
+                    continue
+                fp = os.path.join(HIST, str(row.get("id")) + ".json")
+                try:
+                    with open(fp, encoding="utf-8") as f:
+                        rec = json.load(f)
+                except Exception:
+                    continue
+                if rec.get("fb_done"):
+                    continue
+                if not (rec.get("rating") or rec.get("fb_tags") or rec.get("fb_note")):
+                    continue
+                imd = rec.get("content", "")
+                i = imd.find("integrated_multimodal_description:")
+                j = imd.find("overall_soundscape:")
+                if i >= 0:
+                    imd = imd[i + len("integrated_multimodal_description:"): j if j > i else None].strip()
+                items.append({"id": rec["id"], "mode": rec.get("mode") or "cuts",
+                              "rating": rec.get("rating", ""), "fb_tags": rec.get("fb_tags") or [],
+                              "fb_note": rec.get("fb_note", ""), "story_note": (rec.get("note") or "")[:200],
+                              "imd_excerpt": imd[:700]})
+                if len(items) >= 20:
+                    break
+            return self.send_json({"count": len(items), "items": items})
+
         if p == "/api/habits":
             q = parse_qs(urlparse(self.path).query)
             mode = (q.get("mode") or ["cuts"])[0]
@@ -1093,6 +1149,56 @@ class H(SimpleHTTPRequestHandler):
             return self.send_json({"ok": True, "moved": moved, "trash": trash,
                                    "restore_hint": "move the files in %s back into history/ and restart" % trash})
 
+        if p == "/api/lessons":
+            try:
+                body = self.read_json()
+            except Exception as e:
+                return self.send_json({"error": "bad json: %s" % e}, 400)
+            en = str(body.get("en") or "").strip()[:300]
+            zh = str(body.get("zh") or "").strip()[:300]
+            mode = body.get("mode") if body.get("mode") in ("cuts", "onetake", "both") else "both"
+            if not en and not zh:
+                return self.send_json({"error": "en / zh 至少要有一個"}, 400)
+            with LOCK:
+                rows = load_lessons()
+                rid = str(body.get("id") or "")
+                hit = next((x for x in rows if x.get("id") == rid), None) if rid else None
+                if hit is None:
+                    hit = {"id": new_id(), "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                           "origin": str(body.get("origin") or "manual")[:10]}
+                    rows.insert(0, hit)
+                hit.update({"en": en or zh, "zh": zh or en, "mode": mode,
+                            "enabled": bool(body.get("enabled", True)),
+                            "src": [str(x)[:16] for x in (body.get("src") or [])][:20] or hit.get("src", [])})
+                save_lessons(rows)
+            return self.send_json(hit)
+
+        if p == "/api/lessons/mark":
+            try:
+                body = self.read_json()
+            except Exception as e:
+                return self.send_json({"error": "bad json: %s" % e}, 400)
+            ids = [str(x) for x in (body.get("ids") or []) if ID_RE.match(str(x))]
+            done = 0
+            with LOCK:
+                rows = load_index()
+                for rid in ids:
+                    fp = os.path.join(HIST, rid + ".json")
+                    try:
+                        with open(fp, encoding="utf-8") as f:
+                            rec = json.load(f)
+                        rec["fb_done"] = True
+                        with open(fp, "w", encoding="utf-8") as f:
+                            json.dump(rec, f, ensure_ascii=False, indent=1)
+                        for row in rows:
+                            if row.get("id") == rid:
+                                row["fb_done"] = 1
+                        done += 1
+                    except Exception:
+                        pass
+                save_index(rows)
+            return self.send_json({"ok": True, "marked": done})
+
         m = re.match(r"^/api/history/([^/]+)/rate$", p)
         if m:
             rid = unquote(m.group(1))
@@ -1115,12 +1221,15 @@ class H(SimpleHTTPRequestHandler):
                     rec = json.load(f)
                 rec["rating"], rec["fb_tags"], rec["fb_note"] = rating, tags, note
                 rec["fb_ts"] = time.strftime("%Y-%m-%d %H:%M:%S") if (rating or tags or note) else ""
+                rec["fb_done"] = False                     # 重新評分 -> 重新列入待整理
                 with open(fp, "w", encoding="utf-8") as f:
                     json.dump(rec, f, ensure_ascii=False, indent=1)
                 rows = load_index()
                 for row in rows:
                     if row.get("id") == rid:
                         row["rating"] = rating
+                        row["has_fb"] = bool(rating or tags or note)
+                        row["fb_done"] = 0
                         break
                 save_index(rows)
             return self.send_json({"ok": True, "rating": rating, "fb_tags": tags})
@@ -1391,6 +1500,17 @@ class H(SimpleHTTPRequestHandler):
                     except OSError: pass
                 save_uindex([r for r in load_uindex() if r.get("id") != h])
             return self.send_json({"ok": True, "cascade": cascade, "deleted_history": len(victims)})
+
+        m = re.match(r"^/api/lessons/([^/]+)$", pth)
+        if m:
+            rid = unquote(m.group(1))
+            with LOCK:
+                rows = load_lessons()
+                n0 = len(rows)
+                rows = [x for x in rows if x.get("id") != rid]
+                if len(rows) < n0:
+                    save_lessons(rows)
+            return self.send_json({"ok": True})
 
         m = re.match(r"^/api/loras/([^/]+)$", pth)
         if m:
