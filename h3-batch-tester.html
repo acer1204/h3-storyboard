@@ -1177,8 +1177,7 @@ window.lesToggle = async (id, on) => {
 };
 window.lesBan = async id => {
   const l = LESSONS.find(x => x.id === id); if (!l) return;
-  const v = prompt("檢查詞：逗號分隔的英文片語。生成輸出出現任何一個＝判違規、強制重試修正。
-清空＝取消檢查（規則仍會注入，只是不強制）。", l.ban || "");
+  const v = prompt("檢查詞：逗號分隔的英文片語。生成輸出出現任何一個＝判違規、強制重試修正。清空＝取消檢查（規則仍會注入，只是不強制）。", l.ban || "");
   if (v === null) return;
   await fetch("/api/lessons", {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({...l, ban: v.trim()})}).catch(()=>{});
