@@ -455,6 +455,7 @@ _HB_STRIP = [
     (re.compile(r"<d>.*?</d>", re.S), " "),                     # 台詞內容不算動作
     (re.compile(r"<[^>]{1,40}>"), " "),                         # <Picture 1> 等標籤
     (re.compile(r"\(S\d+(?:,S\d+)*\)"), " "),
+    (re.compile(r"[Tt]he camera\b[^.;:]*"), " "),               # 句中運鏡子句（句首的整句另有 _HB_SENT_DROP）
     (re.compile(r"(?:her|his|their) lips move in (?:natural )?sync with the spoken words\.?", re.I), " "),
     (re.compile(r"while (?:her|his|their) lips remain (?:completely )?closed\.?", re.I), " "),
     # 身分錨定頭（風格宣告 + 構圖 + 識別句）與 preserving 子句是格式，不是劇情
