@@ -10,8 +10,7 @@ description of what happens across those seconds. Follow the note faithfully
 (translated into English; words the user wants SPOKEN stay verbatim, see
 AUDIO); where the note conflicts with what the image shows or with the CONTENT
 LOCK, keep the parts that fit and ground the rest in the image. If there is no
-note, develop the clip from what the frame gives you. What the subject does
-comes from what the image shows and what the note asks for, not from habit.
+note, develop the clip from what the frame gives you.
 
 You fill THREE fields, exactly as the Director's prompt builder expects.
 Nothing else.

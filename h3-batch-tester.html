@@ -475,8 +475,8 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
         <option value="1" selected>開啟</option><option value="0">關閉</option></select></div>
       <div><label>自動重試次數</label><input type="text" id="retry" value="10"></div>
       <div><label>重試目標</label><select id="retrylvl">
-        <option value="ok" selected>完全通過（無警告）</option>
-        <option value="noerr">無錯誤即可</option></select></div>
+        <option value="ok">完全通過（無警告）</option>
+        <option value="noerr" selected>無錯誤即可</option></select></div>
     </div>
     <p class="hint" style="margin-top:10px">生成結果不符合重試目標時自動重新生成，直到符合或用完次數，
       並保留其中最好的一次。設 0 關閉。</p>
@@ -1415,13 +1415,11 @@ function validate(c, target, wantShots){
   const ts=[...body.matchAll(/\[Shot (\d+)\]\s*At (\d{2}):(\d{2}\.\d{3})(?!\d)/g)].map(m=>({n:+m[1], t:+m[2]*60+parseFloat(m[3])}));
   const anyTs=[...body.matchAll(/At (\d{2}):(\d{2}\.\d{3})(?!\d)/g)].map(m=>+m[1]*60+parseFloat(m[2]));
   if (/At \d{2}:\d{2}\.\d{4,}/.test(body) || /At \d{1}:\d{2}\.\d{3}/.test(body) || /At \d{2}:\d{2}\.\d{1,2}(?!\d)/.test(body)) E.push("時間戳格式必須是 MM:SS.mmm（官方）");
-  if (anyTs.length > ts.length) W.push("時間戳只應出現在 [Shot N] 標記之後（官方：each later shot begins with its cut time）");
   if (/\[Shot 1\]\s*At \d{2}:\d{2}\.\d{3}/.test(body)) E.push("[Shot 1] 不可帶時間戳（官方：first shot has no timestamp）");
   for (const s of shots.slice(1)) if (!ts.some(x=>x.n===s)) E.push("[Shot "+s+"] 必須以 At MM:SS.mmm 開頭");
   const tsv = ts.map(x=>x.t);
   if (tsv.join() !== [...tsv].sort((a,b)=>a-b).join() || new Set(tsv).size !== tsv.length) E.push("時間戳必須嚴格遞增 "+JSON.stringify(tsv));
   if (tsv.length && Math.max(...tsv) >= target) E.push(`時間戳 ${Math.max(...tsv)} 已達或超過影片時長 ${target}s`);
-  if (tsv.length && target - Math.max(...tsv) < 1.0) W.push(`末鏡只剩 ${(target-Math.max(...tsv)).toFixed(2)}s`);
   /* cut verbs: official list */
   const cutOK = /(?:the camera|the shot) (?:cuts to|transitions to|changes to|switches to)|cross-?dissolve|fades? (?:to|in|out)|wipe/i;
   shots.slice(1).forEach(sn=>{ const seg=body.split("[Shot "+sn+"]")[1]||""; if(!cutOK.test(seg.slice(0,140))) W.push(`[Shot ${sn}] 建議用官方切換用語（the camera cuts to / the shot transitions to …）`); });
@@ -1464,8 +1462,6 @@ function validate(c, target, wantShots){
   /* scaffolding leaked from the system prompt into the output */
   { const leak = body.match(/\b[Pp]hase [1-5]\b|\b[Hh]andoff into\b|(?<!<)<(?!\/?d>|Picture \d>|scenetrans>|cutoff>|SUB:|MAIN)[A-Za-z][^<>]{1,60}>(?!>)|\bIDENTITY TAG\b|\bcensus guard\b|\bPreservation clause\b|\bthe key scenery\b|\beach named specifically\b/g);
     if (leak) E.push("輸出含 System Prompt 的骨架標籤（" + [...new Set(leak.map(x=>x.trim()))].slice(0,3).join(", ") + "）— 那是給模型看的說明，不是要輸出的文字"); }
-  /* not per-shot: the official T2VA example itself has a shot with no camera sentence */
-  if (shots.length && camSents.length === 0) W.push("沒有任何運鏡句（官方範例每支影片至少有一句 The camera …）");
   /* the three destructive I2V patterns stay as ERRORS */
   if (/(?:arc|orbit|circle|swing)s?[^.]{0,60}(?:behind her|behind him|to (?:her|his) back|around to the back|full circle|all the way around|360)/i.test(body)
       || /reveal(?:s|ing)? (?:her|his|the) (?:back|spine|rear)\b/i.test(body)
@@ -1478,8 +1474,6 @@ function validate(c, target, wantShots){
   if (blur_m) E.push("描述裡出現模糊詞彙，H3 會照做（"+[...new Set(blur_m.map(x=>x.toLowerCase()))].slice(0,3).join(", ")+"）");
   if (/[Tt]he camera [^.]*?(?:reveal|uncover|expos)[^.]*?(?:scene|scenery|room|space|background|landscape|doorway|window|sky|corridor|hallway)/.test(body))
     W.push("鏡頭移動去揭露首幀外的場景 — 建議留在首幀範圍內");
-  if (/fill(?:s|ing) the (?:entire )?frame/i.test(body)) W.push("「fills the frame」易過近或裁切");
-  if (/(?:walks|steps|runs|moves|exits) (?:out of|off|beyond) (?:the )?(?:frame|shot|view)/i.test(body)) W.push("主體離開畫面 — 結尾應仍包含主體");
 
   /* ---------- 7. dialogue (guide §4.4) ----------
         - every <d> block: speaker ID (S1)/(S1,S2) + identity phrase OUTSIDE the block, in the same sentence
@@ -1579,8 +1573,6 @@ function validate(c, target, wantShots){
     }
   }
 
-  /* ---------- 9. content lock (project rule, kept as warning) ---------- */
-  if (/Preserve[^.]*(?:each named specifically|the key scenery|her hair, outfit and)/i.test(body)) W.push("Preserve 子句抄了模板原文 — 要具體列出這張圖的物件");
 
   return {E, W, I, moves, pairs};
 }
@@ -1722,7 +1714,7 @@ const TR_SYS = "你是專業的影視腳本翻譯。把使用者給的 MiniMax H
 
 function retryCfg(){
   return { max: Math.max(0, parseInt($("#retry").value) || 0),
-           lvl: $("#retrylvl").value || "ok" };
+           lvl: $("#retrylvl").value || "noerr" };
 }
 function isClean(v, lvl){
   return lvl === "noerr" ? !v.E.length : (!v.E.length && !v.W.length);

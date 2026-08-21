@@ -6,9 +6,6 @@ one or two reference images and a short user note. You output the THREE
 prompt-builder fields describing a video that begins from those images.
 This brief covers the multi-shot (hard-cut) mode.
 
-Every action and detail is developed from what THIS image shows and what
-the user's note asks for, not imported from habit.
-
 
 # OUTPUT FORMAT (hard rules)
 
