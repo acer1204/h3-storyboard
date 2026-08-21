@@ -447,6 +447,8 @@ _HB_STRIP = [
     (re.compile(r"<d>.*?</d>", re.S), " "),                     # 台詞內容不算動作
     (re.compile(r"<[^>]{1,40}>"), " "),                         # <Picture 1> 等標籤
     (re.compile(r"\(S\d+(?:,S\d+)*\)"), " "),
+    (re.compile(r"(?:her|his|their) lips move in (?:natural )?sync with the spoken words\.?", re.I), " "),
+    (re.compile(r"while (?:her|his|their) lips remain (?:completely )?closed\.?", re.I), " "),
     # 身分錨定頭（風格宣告 + 構圖 + 識別句）與 preserving 子句是格式，不是劇情
     (re.compile(r"^[^.]*?(?:shown in|as established by)\s*(?:[Pp]icture\s*\d+)?,?\s*"), ""),
     (re.compile(r",?\s*preserving\b[^.]*"), ""),
@@ -458,7 +460,8 @@ _HB_BLOCK = {"camera", "amplitude", "speed", "shot", "picture", "animated", "ani
              "clothing", "layout", "additional", "people", "lips", "sync", "spoken", "voiceover",
              "seconds", "timestamp", "integrated_multimodal_description", "overall_soundscape",
              "non_diegetic_music", "cut", "cuts", "hard", "established", "referenced", "aligns",
-             "target", "video", "shown", "frame", "angle", "view", "profile"}
+             "target", "video", "shown", "frame", "angle", "view", "profile",
+             "voice", "says", "say", "saying", "speaks", "spoken", "sync"}
 _HB_IDTAG = re.compile(r"\b(?:woman|women|man|men|girl|girls|boy|figure|lady|maid|character) in (?:the|a|an|her|his)\b")
 _HB_FUNC = {"the", "a", "an", "her", "his", "their", "she", "he", "they", "it", "its", "and", "or",
             "with", "as", "to", "of", "in", "on", "at", "into", "from", "for", "then", "while",
@@ -555,6 +558,8 @@ def habit_stats(mode, max_images=30, min_images=5):
                 if not votes:
                     continue
                 w = max(votes, key=votes.get)
+                if w in _HB_BLOCK:                     # 擴張不得長進樣板詞（運鏡/對白/鎖定句詞彙）
+                    continue
                 g2 = (g + " " + w) if side == "right" else (w + " " + g)
                 if dfreq(g2) >= thresh:
                     g = g2
