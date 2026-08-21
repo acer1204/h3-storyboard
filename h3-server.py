@@ -629,6 +629,10 @@ def habit_stats(mode, max_images=30, min_images=5):
             "camera": [{"p": g, "n": c, "pct": round(c * 100 / n)} for g, c in camkept[:5]]}
 
 
+def _les_norm(t):
+    return re.sub(r"[\W_]+", "", (t or "").lower())
+
+
 def load_lessons():
     try:
         with open(LESSONS_FILE, encoding="utf-8") as f:
@@ -1196,6 +1200,11 @@ class H(SimpleHTTPRequestHandler):
                 rid = str(body.get("id") or "")
                 hit = next((x for x in rows if x.get("id") == rid), None) if rid else None
                 if hit is None:
+                    # 完全相同的規則不重複入庫（措辭近似的交給前端相似度比對＋使用者裁決）
+                    ne, nz = _les_norm(en or zh), _les_norm(zh or en)
+                    dup = next((x for x in rows if _les_norm(x.get("en")) == ne or _les_norm(x.get("zh")) == nz), None)
+                    if dup is not None:
+                        return self.send_json(dict(dup, dup=True))
                     hit = {"id": new_id(), "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
                            "origin": str(body.get("origin") or "manual")[:10]}
                     rows.insert(0, hit)

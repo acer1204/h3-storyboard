@@ -1124,6 +1124,30 @@ function lessonSuffix(){
     + act.map(l => "- " + l.en).join("\n");
 }
 const LMODE = {both:"通用", cuts:"硬切", onetake:"一鏡"};
+/* 措辭相似度（英文取字、含中文取雙字滑窗；overlap coefficient），用來揪「換句話說的重複規則」 */
+function lesSim(a, b){
+  const grams = t => {
+    t = (t || "").toLowerCase();
+    if (/[\u4e00-\u9fff]/.test(t)){
+      const c = t.replace(/[^\u4e00-\u9fffa-z0-9]/g, ""), g = new Set();
+      for (let i = 0; i < c.length - 1; i++) g.add(c.slice(i, i + 2));
+      return g;
+    }
+    return new Set(t.replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 2));
+  };
+  const A = grams(a), B = grams(b);
+  if (!A.size || !B.size) return 0;
+  let n = 0; for (const x of A) if (B.has(x)) n++;
+  return n / Math.min(A.size, B.size);
+}
+function lesDupOf(pr, extra){
+  let best = null, bs = 0;
+  for (const l of [...LESSONS, ...(extra || [])]){
+    const sim = Math.max(lesSim(pr.en, l.en), lesSim(pr.zh, l.zh));
+    if (sim > bs){ bs = sim; best = l; }
+  }
+  return bs >= 0.6 ? best : null;
+}
 function renderLessons(){
   const pend = $("#lespend"); if (!pend) return;
   pend.textContent = LES_PENDING
@@ -1190,11 +1214,13 @@ $("#lesdistill") && ($("#lesdistill").onclick = async () => {
       return;
     }
     lesMarkIds = pd.items.map(x => x.id);
+    const dups = props.map((pr, i) => lesDupOf(pr, props.slice(0, i)));   // 對照庫內規則＋同批前面的提案
     $("#lesprops").innerHTML = `<div class="lesprop">
       <p class="ph" style="margin-top:0">模型從 ${pd.items.length} 筆反饋歸納出 ${props.length} 條，勾選要入庫的（文字可改）：</p>
       ${props.map((pr, i) => `
+        ${dups[i] ? `<p class="hint" style="margin:6px 0 0;color:var(--warn)">↓ 疑似與現有規則重複：「${esc(dups[i].zh || dups[i].en || "")}」— 已預設不勾</p>` : ""}
         <div class="row" style="gap:7px;margin-top:6px;align-items:center">
-          <input type="checkbox" class="lespick" data-i="${i}" checked style="width:15px;height:15px;accent-color:var(--acc)">
+          <input type="checkbox" class="lespick" data-i="${i}" ${dups[i] ? "" : "checked"} style="width:15px;height:15px;accent-color:var(--acc)">
           <select class="lespmode" data-i="${i}" style="max-width:100px">
             ${["both","cuts","onetake"].map(mo => `<option value="${mo}" ${pr.mode===mo?"selected":""}>${LMODE[mo]}</option>`).join("")}
           </select>
@@ -1227,16 +1253,22 @@ window.lesAcceptPicked = () => {
   lesAccept(out);
 };
 window.lesAccept = async rules => {
-  for (const r of rules.filter(x => x.en || x.zh))
-    await fetch("/api/lessons", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({...r, enabled:true, origin:"auto", src: lesMarkIds})}).catch(()=>{});
+  let added = 0, dup = 0;
+  for (const r of rules.filter(x => x.en || x.zh)){
+    const j = await fetch("/api/lessons", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({...r, enabled:true, origin:"auto", src: lesMarkIds})})
+      .then(x => x.json()).catch(() => null);
+    if (j && j.dup) dup++; else if (j) added++;
+  }
   if (lesMarkIds.length)
     await fetch("/api/lessons/mark", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ids: lesMarkIds})}).catch(()=>{});
   lesMarkIds = [];
   $("#lesprops").innerHTML = "";
   await refreshLessons();
-  $("#lespend").textContent += (rules.length ? `　已加入 ${rules.length} 條 ✓` : "　已標記 ✓");
+  $("#lespend").textContent += (rules.length
+    ? `　已加入 ${added} 條 ✓${dup ? `（${dup} 條與現有規則相同，已跳過）` : ""}`
+    : "　已標記 ✓");
 };
 $("#lesadd") && ($("#lesadd").onclick = async () => {
   const zh = $("#lesaddtxt").value.trim(); if (!zh) return;
@@ -1248,9 +1280,11 @@ $("#lesadd") && ($("#lesadd").onclick = async () => {
     const t = (j.choices[0].message.content || "").trim();
     if (t && t.length < 300) en = t;
   }catch(e){}
-  await fetch("/api/lessons", {method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({en, zh, mode: $("#lesaddmode").value, enabled:true, origin:"manual"})}).catch(()=>{});
+  const j = await fetch("/api/lessons", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({en, zh, mode: $("#lesaddmode").value, enabled:true, origin:"manual"})})
+    .then(x => x.json()).catch(() => null);
   $("#lesaddtxt").value = ""; $("#lesadd").disabled = false;
+  if (j && j.dup && $("#lespend")) $("#lespend").textContent = "與現有規則相同，未重複加入：「" + (j.zh || "") + "」";
   refreshLessons();
 });
 
