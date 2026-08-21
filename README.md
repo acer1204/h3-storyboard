@@ -97,7 +97,7 @@ v1.1 起，內建 System Prompt 採「格式核心」設計：**prompt 只管格
 |---|---|
 | Python 3.10+ | 伺服器端；**無第三方套件** |
 | [llama.cpp](https://github.com/ggml-org/llama.cpp) `llama-server` | 跑一個**支援視覺**的模型（實測 Qwen3-VL 系列，34B IQ4_XS 可用；需 `/v1/chat/completions` 相容 API） |
-| ComfyUI（選用） | 送出生成用。需 MiniMax H3 原生節點；實測搭配 [DaSiWa MiniMax H3 Director](https://github.com/darksidewalker/ComfyUI-DaSiWa-Nodes) |
+| ComfyUI（選用） | 送出生成用。需 MiniMax H3 原生節點；實測搭配 [DaSiWa MiniMax H3 Director](https://github.com/darksidewalker/ComfyUI-DaSiWa-Nodes)。**倉庫附作者實際使用的完整工作流** [`workflows/MiniMaxH3_Workflow_0820.json`](workflows/MiniMaxH3_Workflow_0820.json)（Export (API) 格式，可直接用系統設定的「從 workflow.json 匯入模板」載入；含 Director、Turbo LoRA、SageAttention、EasyCache、RTX Upscaler，須先裝好對應模型與 DaSiWa 節點） |
 | 現代瀏覽器 | Chrome / Edge |
 
 ### 三步啟動
