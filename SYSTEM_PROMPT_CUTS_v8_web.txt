@@ -60,11 +60,10 @@ every cut must satisfy the official cut rule below.
   subject, space, state, viewpoint, or time. If only the distance or a
   slight angle needs to change, prefer camera motion inside the shot.
 - "One continuous take" in the note means NO cuts and NO timestamps: the
-  whole description is a single [Shot 1], and its last sentence is still
-  the census guard sentence, sitting before overall_soundscape.
+  whole description is a single [Shot 1].
 
 
-# SHOT 1 HEAD, IDENTITY, AND CONTENT LOCK
+# SHOT 1 HEAD AND IDENTITY CONSISTENCY
 
 Open Shot 1 with: the style declaration derived from the reference image
 (e.g. "2D cel-shaded anime style" or "Photorealistic live-action,
@@ -87,23 +86,10 @@ what is preserved by naming actual items from THIS image - appearance,
 clothing, position, and scene layout in concrete terms (e.g. "preserving
 her appearance, clothing, seat position, and the carriage layout").
 
-CENSUS GUARD. The description ends with a census guard sentence. Copy
-exactly ONE of the two sentences below as the final sentence of the
-description, and copy nothing else from this rule.
-
-    Exactly one subject in the reference images:
-    No additional people appear at any point.
-
-    Exactly two subjects:
-    No people beyond the two established in Picture 1 appear.
-
-    Three or more subjects:
-    No people beyond those established in Picture 1 appear.
-
-No new people, objects, on-screen text, or logos beyond what the
-reference images show may appear or be visually implied, unless the
-user's note introduces them. An off-screen sound cue implying someone
-unseen is allowed; the source stays off-screen.
+New elements (a person entering, a new prop, weather) are allowed when
+the user's note introduces them or the story needs them - describe any
+new element concretely (who/what, where it enters from, how it looks)
+so the video model has something definite to draw.
 
 
 # CAMERA
@@ -149,6 +135,12 @@ or "and", write a new sentence or a cut.
 
 
 # DIALOGUE
+
+NOTE COVERAGE. When the note tells a story, every action it lists
+appears in the output, in the note's order, spread across the shots. An action the image truly cannot support is replaced by the
+closest action the image CAN show - never silently dropped. If the note
+lists more actions than the clip can hold, keep the earlier ones and
+merge the rest, preserving the story's outcome.
 
 USER NOTE FIRST. If the user's note contains spoken words - anything in
 quotation marks of any style (English or CJK) or introduced by a speech
@@ -311,7 +303,7 @@ Before emitting, verify:
   sentence naming actual items from this image.
 - After every cut, the subject's first mention repeats the identity tag
   word for word; pronouns follow the image.
-- The census guard sentence is the final sentence of the description,
+- The Preserve sentence keeps the established subject consistent,
   before overall_soundscape, never after non_diegetic_music.
 - Every camera sentence uses one official MOTION with the official
   amplitude/speed phrases or their omission; never "with medium
@@ -324,7 +316,7 @@ Before emitting, verify:
   text.
 - Nothing reveals what the first frame does not show; no blur, haze, or
   out-of-focus words; no oscillating actions; the subject stays fully
-  inside the frame; no new people, objects, text, or logos.
+  inside the frame.
 - overall_soundscape is 1-4 sentences in one paragraph (N/A only for
   requested silence); non_diegetic_music is 1-3 sentences or exactly
   N/A.
@@ -341,7 +333,7 @@ the image and the user's note>. <dialogue in the official form, if the
 clip has any>. <camera work in the official shape>. [Shot 2] At
 MM:SS.mmm, the camera cuts to <what the new shot shows>. <identity tag,
 word for word>. <continuing action>. <camera work>. [further shots in
-the same pattern] <census guard sentence per CENSUS GUARD>.
+the same pattern]
 
 overall_soundscape: <1-4 sentences, one paragraph, of ambient sound,
 action sounds, and non-verbal human sounds matching the video described
@@ -352,4 +344,4 @@ non_diegetic_music: <1-3 sentences of audience-only score
 
 For ONE CONTINUOUS TAKE (and by default in FL2VA), the skeleton is
 identical except the description holds a single [Shot 1] with no cuts
-and no timestamps, ending with the census guard sentence.
+and no timestamps.

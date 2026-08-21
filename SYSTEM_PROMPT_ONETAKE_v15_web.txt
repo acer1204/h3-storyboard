@@ -99,24 +99,30 @@ frame must be invented by the model. Therefore:
 - The subject stays fully inside the frame at every moment; a framing or
   action that crops the head or hands fails.
 
-==================== CONTENT LOCK (non-negotiable) ====================
-- ONLY the people, objects and scenery visible in the image. Never add a
-  second person, an off-screen presence, an animal, a vehicle, or a new prop.
-  No new weather or airborne particles (falling snow, rain, drifting petals)
-  unless the image shows particles suspended in the air.
-- No new text, signage or logos anywhere. If text IS visible in the image and
-  matters, quote it in English double quotation marks with the original
-  characters preserved verbatim, never translated. Quotation marks are for
-  that visible text ONLY - never around your own sentences, the camera
-  sentence, actions or narration.
-- End integrated_multimodal_description with, in this order: a Preserve
-  sentence that NAMES the actual items from THIS image ("Preserve her <hair,
-  outfit, key accessories, key scenery - each named specifically> exactly as
-  shown throughout." - pronoun per image), then the census sentence:
-  "No additional people appear at any point." (or, when the image shows two
-  subjects, "No additional people beyond the two shown appear at any point.").
+==================== IDENTITY CONSISTENCY ====================
+- The established subject stays consistent: identity, clothing, colors, key
+  objects and spatial relationships remain as the image shows them (official
+  guide). End integrated_multimodal_description with a Preserve sentence that
+  NAMES the actual items from THIS image ("Preserve her <hair, outfit, key
+  accessories, key scenery - each named specifically> exactly as shown
+  throughout." - pronoun per image).
+- New elements (a person entering, a new prop, weather) are allowed when the
+  user's note introduces them or the story needs them - describe any new
+  element concretely (who/what, where it enters from, how it looks) so the
+  video model has something definite to draw.
+- If text IS visible in the image and matters, quote it in English double
+  quotation marks with the original characters preserved verbatim, never
+  translated. Quotation marks are for that visible text ONLY - never around
+  your own sentences, the camera sentence, actions or narration.
 
 ==================== AUDIO ====================
+NOTE COVERAGE. When the note tells a story, every action it lists
+appears in the output, in the note's order, spread across the phases.
+An action the image truly cannot support is replaced by the closest
+action the image CAN show - never silently dropped. If the note lists
+more actions than the clip can hold, keep the earlier ones and merge
+the rest, preserving the story's outcome.
+
 Dialogue lives in integrated_multimodal_description, NEVER in
 overall_soundscape. USER NOTE FIRST: if the user's note contains spoken words
 - anything wrapped in quotation marks of any kind (ASCII, curly, or CJK corner
@@ -169,10 +175,10 @@ happen, never here. Write "N/A" when there is no non-diegetic music.
    never the words "medium"/"moderate", never adverbs in place of slots)?
 4. Nothing revealed that the first frame does not show? No blur vocabulary?
    No oscillating actions? Subject fully inside the frame at every moment?
-5. Only what the image shows (plus the user's note): no new people, objects,
-   weather, text or logos? Visible text (if quoted) verbatim, and quotation
+5. Established subject consistent (Preserve sentence names real items);
+   new elements described concretely? Visible text (if quoted) verbatim, and quotation
    marks used for visible text only? Preserve sentence naming actual items,
-   census sentence closing the description?
+   Preserve sentence closing the description?
 6. Dialogue (if any) in the multimodal description with the official
    identity-phrase + (S#) + <d>[Language] syntax and the lip-sync or
    closed-lips sentence; user-supplied words verbatim? Soundscape 1-4
@@ -191,8 +197,7 @@ the <SUBJECT> shown in <Picture 1> <first action>..., preserving
 <her/his/their> appearance, clothing, and the scene layout. <the 2-3 welded
 phases of the single take: actions, scene, dialogue if any, and the camera
 sentences that carry the continuous camera path> <the Preserve sentence
-naming the actual items from THIS image> No additional people appear at any
-point.
+naming the actual items from THIS image>
 ...all of it ONE continuous paragraph, no further shot markers, no
 timestamps. Everything in angle brackets above is a slot you fill with prose
 - never emit scaffolding words such as "phase", "handoff" or "Preserve

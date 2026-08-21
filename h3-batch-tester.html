@@ -1580,7 +1580,6 @@ function validate(c, target, wantShots){
   }
 
   /* ---------- 9. content lock (project rule, kept as warning) ---------- */
-  if (!/No additional people|No people beyond the/i.test(body)) W.push("建議以「No additional people …」收尾，避免多出人物");
   if (/Preserve[^.]*(?:each named specifically|the key scenery|her hair, outfit and)/i.test(body)) W.push("Preserve 子句抄了模板原文 — 要具體列出這張圖的物件");
 
   return {E, W, I, moves, pairs};
@@ -1714,7 +1713,7 @@ function userNote(it){
   let t = $("#dur").value + "\n" + shotLine(it.shots || 1);
   const fl = frameLine(it.w, it.h);
   if (fl) t += "\n" + fl;
-  return n ? t + "\n\n" + n : t;
+  return n ? t + "\n\nSTORY NOTE from the user - this is the story to tell. Cover EVERY action it lists, in order, within the phase/shot budget; if an action truly cannot be done with what the image shows, replace it with the closest action the image supports - never silently drop it. Words in quotes are spoken verbatim.\n" + n : t;
 }
 const TR_SYS = "你是專業的影視腳本翻譯。把使用者給的 MiniMax H3 影片 prompt 逐句翻成繁體中文（台灣用語）。"
   + "保留 [Shot N] 標記與 MM:SS.mmm 時間戳的位置，[Shot N] 譯為 [鏡頭 N]。"
@@ -2236,7 +2235,7 @@ async function regenerate(rec, note, shots, onStep){
   let utext = $("#dur").value + "\n" + shotLine(shots);
   const fl = frameLine(dim.w, dim.h);
   if (fl) utext += "\n" + fl;
-  if (note) utext += "\n\n" + note;
+  if (note) utext += "\n\nSTORY NOTE from the user - this is the story to tell. Cover EVERY action it lists, in order, within the phase/shot budget; if an action truly cannot be done with what the image shows, replace it with the closest action the image supports - never silently drop it. Words in quotes are spoken verbatim.\n" + note;
 
   step("產生中…");
   const t0 = performance.now();
