@@ -690,8 +690,8 @@ const PAPI = "/api/prompts";
 const MODES = {cuts:"硬切分鏡", onetake:"一鏡到底"};
 function curMode(){ const m = $("#mode").value; return MODES[m] ? m : "cuts"; }
 function PSEL(){ return "h3.prompt." + curMode() + ".v1"; }
-const BUILTIN = {id:"builtin", name:"內建 硬切 v7（官方規範對齊）", text:null, builtin:true, mode:"cuts", file:"SYSTEM_PROMPT_CUTS_v7_web.txt"};
-const BUILTIN_OT = {id:"builtin-onetake", name:"內建 一鏡到底 v14（官方規範對齊）", text:null, builtin:true, mode:"onetake", file:"SYSTEM_PROMPT_ONETAKE_v14_web.txt"};
+const BUILTIN = {id:"builtin", name:"內建 硬切 v8（格式核心：品味歸經驗庫）", text:null, builtin:true, mode:"cuts", file:"SYSTEM_PROMPT_CUTS_v8_web.txt"};
+const BUILTIN_OT = {id:"builtin-onetake", name:"內建 一鏡到底 v15（格式核心：品味歸經驗庫）", text:null, builtin:true, mode:"onetake", file:"SYSTEM_PROMPT_ONETAKE_v15_web.txt"};
 let prompts = [BUILTIN, BUILTIN_OT], active = BUILTIN.id, dirty = null;
 
 function builtinFor(mode){ return mode === "onetake" ? BUILTIN_OT : BUILTIN; }
@@ -1458,10 +1458,6 @@ function validate(c, target, wantShots){
     if (amp && !/^(small|large)$/.test(amp)) W.push(`amplitude 只有 small/large（官方），不用「${amp}」— 中間值直接省略`);
     if (spd && !/^(slow|fast)$/.test(spd)) W.push(`speed 只有 slow/fast（官方），不用「${spd}」— 中間值直接省略`);
     if (fam) moves.push(fam); pairs.push((amp||"-")+"/"+(spd||"-"));
-    /* I2V: an unstated speed renders at normal speed, which smears; the official examples all state it */
-    if (fam && fam !== "static" && !spd) W.push(`運鏡句沒寫速度（「${cs.slice(0,50)}」）— 省略＝normal，I2V 建議寫 at slow speed`);
-    /* I2V-safety: large amplitude only where it does not force new scenery */
-    if (amp==="large" && fam && !["push","zoom","static"].includes(fam)) W.push(`large amplitude 配 ${fam} 容易糊（首幀外要重畫）— 建議 small，或改 push in`);
   });
   /* quotes are for visible on-screen text (guide §4.5) — a quoted camera sentence / narration becomes a caption */
   if (/"\s*[Tt]he camera [^"]{3,}"/.test(body)) E.push("運鏡句不可加引號 — 雙引號只給畫面上看得到的文字（官方 §4.5）");

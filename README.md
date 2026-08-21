@@ -22,6 +22,8 @@
 
 在 H3 裡 `[Shot N]` 就是「硬切」——這正是多鏡頭時內容不連貫、人物跑掉的原因。一鏡到底模式用三個階段焊接（每段結束狀態 = 下段開始狀態），每階段一句運鏡、push/zoom 只留給收尾。驗證器依模式套不同規則，不合格自動重試。
 
+v1.1 起，內建 System Prompt 採「格式核心」設計：**prompt 只管格式與物理**（官方規格、三欄位、運鏡詞彙、對白語法、模糊/繞背/往復等 I2V 物理限制），**品味與內容偏好全部交給經驗庫**（你的反饋歸納出的規則，生成時注入並蓋過 brief）——單一品味來源，規則不再和 prompt 打架。
+
 兩組內建 System Prompt 與驗證器都對齊 MiniMax 官方《Video Prompt Writing Guide》：官方 20 種運鏡用語、`small|large` / `slow|fast`（中間值省略）、`(S1) says: <d>[語言] …</d>` 對白語法、風格宣告 + `<Picture 1>` 錨定、音樂不寫抽象情緒詞。對齊行（`For the target video, at 0.00 seconds…`）預設不寫，由 Director 節點自動注入。
 
 ![settings](docs/img/04-settings-mode.png)
@@ -228,8 +230,8 @@ non_diegetic_music: ...
 h3-server.py                    伺服器（歷史 / 上傳庫 / LoRA / Prompt / ComfyUI 橋接 / 媒體庫）
 h3-batch-tester.html            前端（單一檔案）
 h3-lora.js                      LoRA 觸發詞引擎（佔位符解析、MAIN 置頂、語意補入、中文代號）
-SYSTEM_PROMPT_ONETAKE_v14_web.txt   一鏡到底內建 System Prompt（官方規範對齊）
-SYSTEM_PROMPT_CUTS_v7_web.txt       硬切分鏡內建 System Prompt（官方規範對齊）
+SYSTEM_PROMPT_ONETAKE_v15_web.txt   一鏡到底內建 System Prompt（格式核心）
+SYSTEM_PROMPT_CUTS_v8_web.txt       硬切分鏡內建 System Prompt（格式核心）
 comfy-template.json             ComfyUI 送出模板（範例，會被「更新模板」覆蓋）
 config.example.json             設定範例 → 複製成 config.json
 start-h3-tester.bat             Windows 啟動器
