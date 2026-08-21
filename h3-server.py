@@ -1209,6 +1209,7 @@ class H(SimpleHTTPRequestHandler):
                            "origin": str(body.get("origin") or "manual")[:10]}
                     rows.insert(0, hit)
                 hit.update({"en": en or zh, "zh": zh or en, "mode": mode,
+                            "ban": str(body.get("ban") or "")[:200],
                             "enabled": bool(body.get("enabled", True)),
                             "src": [str(x)[:16] for x in (body.get("src") or [])][:20] or hit.get("src", [])})
                 save_lessons(rows)

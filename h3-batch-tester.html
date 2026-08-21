@@ -1098,7 +1098,7 @@ window.habitToLesson = async (mode, kind, p, n, images) => {
     : `Do not write "${p}" out of habit — it appears in ${n} of the last ${images} clips regardless of the image. Use it only when this specific image clearly calls for it.`;
   const zh = (kind === "camera" ? "運鏡慣性「" : "動作慣性「") + p + `」（${n}/${images} 張）— 非這張圖需要不得使用`;
   await fetch("/api/lessons", {method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({en, zh, mode, enabled:true, origin:"habit"})}).catch(()=>{});
+    body: JSON.stringify({en, zh, mode, enabled:true, origin:"habit", ban: p})}).catch(()=>{});
   await refreshLessons();
   const el = $("#lespend"); if (el) el.textContent = "已把慣性轉成規則 ✓（可在下方經驗庫編輯/停用）";
 };
@@ -1120,7 +1120,9 @@ function lessonSuffix(){
   const act = LESSONS.filter(l => l.enabled && (l.mode === m || l.mode === "both")).slice(0, 15);
   if (!act.length) return "";
   return "\n\n# LESSONS — rules distilled from this user's feedback on previous results\n"
-    + "Each rule below exists because a past clip failed for that reason. Follow them strictly:\n"
+    + "Each rule below exists because a past clip failed for that reason. These rules OVERRIDE any\n"
+    + "conflicting guidance, pattern, or worked example elsewhere in this brief — when they clash,\n"
+    + "the rule below wins:\n"
     + act.map(l => "- " + l.en).join("\n");
 }
 const LMODE = {both:"通用", cuts:"硬切", onetake:"一鏡"};
@@ -1158,7 +1160,8 @@ function renderLessons(){
     <div class="lesrow ${l.enabled ? "" : "off"}">
       <input type="checkbox" ${l.enabled ? "checked" : ""} onchange="lesToggle('${l.id}', this.checked)" title="停用後不再注入">
       <span class="lmode">${LMODE[l.mode] || l.mode}</span>
-      <div class="ltxt"><div>${esc(l.zh)}</div><div class="en">${esc(l.en)}</div></div>
+      <div class="ltxt"><div>${esc(l.zh)}${l.ban ? ` <span class="lmode" title="輸出出現這些片語會被判違規並強制重試">檢查詞: ${esc(l.ban)}</span>` : ""}</div><div class="en">${esc(l.en)}</div></div>
+      <button class="ghost mini" onclick="lesBan('${l.id}')" title="設定檢查詞：輸出出現這些英文片語＝違規，強制重試修正">檢查詞</button>
       <button class="ghost mini" onclick="lesDel('${l.id}')">刪除</button>
     </div>`).join("") : '<span class="hint">經驗庫是空的</span>';
   const n = LESSONS.filter(l => l.enabled).length;
@@ -1171,6 +1174,15 @@ window.lesToggle = async (id, on) => {
   await fetch("/api/lessons", {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({...l, enabled: on})}).catch(()=>{});
   renderLessons();
+};
+window.lesBan = async id => {
+  const l = LESSONS.find(x => x.id === id); if (!l) return;
+  const v = prompt("檢查詞：逗號分隔的英文片語。生成輸出出現任何一個＝判違規、強制重試修正。
+清空＝取消檢查（規則仍會注入，只是不強制）。", l.ban || "");
+  if (v === null) return;
+  await fetch("/api/lessons", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({...l, ban: v.trim()})}).catch(()=>{});
+  refreshLessons();
 };
 window.lesDel = async id => {
   if (!confirm("刪除這條經驗規則？")) return;
@@ -1186,6 +1198,7 @@ const REFLECT_SYS = `你是影片 prompt 生成系統的「經驗整理員」。
 - 不要與現有規則重複或近似
 - mode：問題只出現在某一模式就標該模式（"cuts"＝硬切、"onetake"＝一鏡到底），否則 "both"
 - 每條規則：en（英文一句、命令式、具體可執行）、zh（中文一句給使用者看）、mode
+- 若規則可以用具體片語機械檢查（例如某個動作/運鏡短語出現即違規），加上 ban：一至三個英文片語、逗號分隔；片語必須「出現即必然違規」才提供，否則省略
 - recurring_across_images 是跨圖片的高頻統計，只作旁證：與使用者反饋互相印證時才可納入規則，不可只憑頻率立規則
 - 最多 3 條；反饋不足以歸納就輸出 []
 只輸出 JSON 陣列，不要任何其他文字。`;
@@ -1227,6 +1240,7 @@ $("#lesdistill") && ($("#lesdistill").onclick = async () => {
           <div style="flex:1;min-width:220px">
             <input type="text" class="lespzh" data-i="${i}" value="${esc(pr.zh || "")}" style="width:100%">
             <input type="text" class="lespen" data-i="${i}" value="${esc(pr.en || "")}" style="width:100%;margin-top:3px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px">
+            <input type="text" class="lespban" data-i="${i}" value="${esc(pr.ban || "")}" placeholder="檢查詞（選填，逗號分隔；輸出出現這些英文片語＝違規，會強制重試修正）" style="width:100%;margin-top:3px;font-size:11.5px">
           </div>
         </div>`).join("")}
       <div class="row" style="margin-top:10px">
@@ -1248,6 +1262,7 @@ window.lesAcceptPicked = () => {
     const i = ck.dataset.i;
     out.push({en: document.querySelector(`.lespen[data-i="${i}"]`).value.trim(),
               zh: document.querySelector(`.lespzh[data-i="${i}"]`).value.trim(),
+              ban: (document.querySelector(`.lespban[data-i="${i}"]`) || {value:""}).value.trim(),
               mode: document.querySelector(`.lespmode[data-i="${i}"]`).value});
   });
   lesAccept(out);
@@ -1555,6 +1570,18 @@ function validate(c, target, wantShots){
       W.push("音樂不解釋情緒功能（官方 §4.7：只寫樂器/速度/節奏/強弱變化）");
     if (/\b(?:she|he|they) (?:hears?|listens?)|\b(?:radio|record player|turntable|jukebox|speaker|phone|television|tv|stage|band plays|she plays|he plays|sings along)\b/i.test(mus))
       W.push("non_diegetic_music 只放觀眾聽得到的配樂；角色聽得到的音樂（收音機/現場演奏/唱歌）要寫進 imd（官方 §4.7）");
+  }
+
+  /* ---------- 9b. 經驗庫檢查詞：使用者規則的硬性執法（出現即錯誤 -> 觸發修正式重試） ---------- */
+  if (typeof LESSONS !== "undefined" && Array.isArray(LESSONS)){
+    const lm = (typeof curMode === "function") ? curMode() : "cuts";
+    for (const l of LESSONS){
+      if (!l.enabled || !(l.mode === lm || l.mode === "both") || !l.ban) continue;
+      for (const ph of String(l.ban).split(",").map(x => x.trim()).filter(Boolean)){
+        if (body.toLowerCase().includes(ph.toLowerCase()))
+          E.push(`違反經驗庫規則「${(l.zh || l.en || "").slice(0, 30)}」：出現「${ph}」`);
+      }
+    }
   }
 
   /* ---------- 9. content lock (project rule, kept as warning) ---------- */
