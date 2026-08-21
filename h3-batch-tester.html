@@ -501,12 +501,11 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
   </div>
 
   <div class="panel">
-    <h3>🌀 慣性抑制（自動）</h3>
-    <p class="ph">掃描近期紀錄，找出「跨許多<b>不同</b>圖片」重複出現的動作片語 — 那些不是從圖片來的，是模型的慣性。
-      開啟後會在生成時提醒模型避開這些片語（除非圖片真的需要）。硬切與一鏡到底分開統計，各取每張圖的最新版本、最多 30 張。</p>
+    <h3>🌀 慣性偵測（僅提醒，不自動影響生成）</h3>
+    <p class="ph">掃描近期紀錄，找出「跨許多<b>不同</b>圖片」重複出現的動作與運鏡 — 那些不是從圖片來的，是模型的慣性。
+      這裡<b>只偵測、只提醒</b>：想抑制哪一條，按「轉成規則」放進經驗庫（可再編輯/停用），生成才會受影響。
+      硬切與一鏡到底分開統計，各取每張圖的最新版本、最多 30 張，門檻 30%。</p>
     <div class="row">
-      <label style="margin:0">狀態</label>
-      <select id="habit" style="max-width:120px"><option value="1" selected>開啟</option><option value="0">關閉</option></select>
       <button class="ghost mini" id="habitref">重新掃描</button>
     </div>
     <div class="hablist" id="habitlist" style="margin-top:10px">尚未掃描</div>
@@ -646,7 +645,7 @@ const onServer = location.protocol.startsWith("http");
 /* ================= 設定持久化 ================= */
 const SKEY="h3.settings.v1", SPKEY="h3.sp.v1", VKEY="h3.view.v1";
 const FIELDS={server:"#server",dur:"#dur",temp:"#temp",topp:"#topp",think:"#think",tr:"#tr",
-              retry:"#retry",retrylvl:"#retrylvl",mode:"#mode",habit:"#habit"};
+              retry:"#retry",retrylvl:"#retrylvl",mode:"#mode"};
 const store={
   get(k){try{return localStorage.getItem(k)}catch(e){return null}},
   set(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}},
@@ -1079,24 +1078,30 @@ async function refreshHabits(force){
 }
 function renderHabits(){
   const el = $("#habitlist"); if (!el) return;
-  const one = (name, h) => {
+  const line = (mode, kind, arr, images) => arr.map(x =>
+    `<span style="margin-right:10px"><b>${esc(x.p)}</b> <span class="hint">${x.n}/${images}</span>
+     <button class="ghost mini" onclick="habitToLesson('${mode}','${kind}','${esc(x.p).replace(/'/g,"&#39;")}',${x.n},${images})">轉成規則</button></span>`).join("");
+  const one = (name, mode, h) => {
     if (!h) return `<div>${name}：尚未掃描</div>`;
-    if (!(h.phrases||[]).length) return `<div>${name}：${esc(h.note || `分析了 ${h.images} 張，沒有超過門檻的慣性片語 ✓`)}</div>`;
-    return `<div>${name}（${h.images} 張不同圖片）：` +
-      h.phrases.map(x => `<b>${esc(x.p)}</b> <span class="hint">${x.n}/${h.images}</span>`).join("、") + `</div>`;
+    const acts = h.phrases || [], cams = h.camera || [];
+    if (!acts.length && !cams.length)
+      return `<div>${name}：${esc(h.note || `分析了 ${h.images} 張，沒有超過門檻的慣性 ✓`)}</div>`;
+    return `<div style="margin-bottom:6px">${name}（${h.images} 張不同圖片）：<br>
+      ${acts.length ? `動作 — ${line(mode, "action", acts, h.images)}<br>` : ""}
+      ${cams.length ? `運鏡 — ${line(mode, "camera", cams, h.images)}` : ""}</div>`;
   };
-  el.innerHTML = one("硬切", HABITS.cuts) + one("一鏡到底", HABITS.onetake);
+  el.innerHTML = one("硬切", "cuts", HABITS.cuts) + one("一鏡到底", "onetake", HABITS.onetake);
 }
-function habitSuffix(){
-  const sel = $("#habit"); if (sel && sel.value === "0") return "";
-  const h = HABITS[curMode()];
-  if (!h || !(h.phrases||[]).length) return "";
-  return "\n\n# ANTI-HABIT — auto-generated from this user's recent results\n"
-    + "The phrases below appeared across many DIFFERENT recent images, which means they came from\n"
-    + "habit rather than from the image. In this clip do NOT use them, or any close paraphrase,\n"
-    + "unless this specific image clearly calls for it. Find this image's own action instead:\n"
-    + h.phrases.map(x => `- "${x.p}" (${x.n} of ${h.images} recent clips)`).join("\n");
-}
+window.habitToLesson = async (mode, kind, p, n, images) => {
+  const en = kind === "camera"
+    ? `Do not default the camera to "${p}" — it appears in ${n} of the last ${images} clips regardless of the image. Choose the move and target this image actually needs, even if an example in this brief shows "${p}".`
+    : `Do not write "${p}" out of habit — it appears in ${n} of the last ${images} clips regardless of the image. Use it only when this specific image clearly calls for it.`;
+  const zh = (kind === "camera" ? "運鏡慣性「" : "動作慣性「") + p + `」（${n}/${images} 張）— 非這張圖需要不得使用`;
+  await fetch("/api/lessons", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({en, zh, mode, enabled:true, origin:"habit"})}).catch(()=>{});
+  await refreshLessons();
+  const el = $("#lespend"); if (el) el.textContent = "已把慣性轉成規則 ✓（可在下方經驗庫編輯/停用）";
+};
 $("#habitref") && ($("#habitref").onclick = () => { $("#habitlist").textContent = "掃描中…"; refreshHabits(true); });
 
 /* ---------------- 經驗庫（第 2 層）：反饋 -> 規則 -> 注入 ---------------- */
@@ -1155,6 +1160,7 @@ const REFLECT_SYS = `你是影片 prompt 生成系統的「經驗整理員」。
 - 不要與現有規則重複或近似
 - mode：問題只出現在某一模式就標該模式（"cuts"＝硬切、"onetake"＝一鏡到底），否則 "both"
 - 每條規則：en（英文一句、命令式、具體可執行）、zh（中文一句給使用者看）、mode
+- recurring_across_images 是跨圖片的高頻統計，只作旁證：與使用者反饋互相印證時才可納入規則，不可只憑頻率立規則
 - 最多 3 條；反饋不足以歸納就輸出 []
 只輸出 JSON 陣列，不要任何其他文字。`;
 $("#lesdistill") && ($("#lesdistill").onclick = async () => {
@@ -1163,7 +1169,9 @@ $("#lesdistill") && ($("#lesdistill").onclick = async () => {
   try{
     const pd = await (await fetch("/api/lessons/pending")).json();
     if (!pd.items.length){ $("#lespend").textContent = "沒有待整理的反饋"; return; }
+    const habStat = m => { const h = HABITS[m]; return h ? {phrases: (h.phrases||[]).map(x=>x.p), camera: (h.camera||[]).map(x=>x.p)} : null; };
     const payload = {existing_rules: LESSONS.map(l => ({en: l.en, mode: l.mode})),
+                     recurring_across_images: {cuts: habStat("cuts"), onetake: habStat("onetake")},
                      feedback: pd.items.map(x => ({mode: x.mode, rating: x.rating, tags: x.fb_tags,
                        note: x.fb_note, story_note: x.story_note, output_excerpt: x.imd_excerpt.slice(0, 400)}))};
     const j = await chat([{role:"system", content: REFLECT_SYS},
@@ -1685,7 +1693,7 @@ function repair(c){
 }
 async function genOnce(imgUrl, utext, target, wantShots){
   const j = await chat([
-    {role:"system", content: activeText() + loraSystemSuffix() + habitSuffix() + lessonSuffix()},
+    {role:"system", content: activeText() + loraSystemSuffix() + lessonSuffix()},
     {role:"user", content:[{type:"image_url",image_url:{url:imgUrl}},
                            {type:"text",text:utext}]}
   ], {max:4000});

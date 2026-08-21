@@ -41,7 +41,7 @@ CAMERA SENTENCE - HARD FORMAT RULE (violating it voids the output):
   Valid:   "The camera holds a static shot."
   Valid:   "The camera trucks right with small amplitude at slow speed, keeping her centred."
   Valid:   "The camera arcs a quarter turn to her left side with small amplitude at slow speed."
-  Valid:   "The camera pushes in on her face with large amplitude at slow speed."
+  Valid:   "The camera pushes in with large amplitude at slow speed toward the teacup in her hands."
   Valid:   "The camera tracks alongside her with small amplitude at slow speed as she crosses the room."
   Legal but NOT for this brief: "The camera tracks alongside her as she crosses the room."  (omitted slots =
                                 medium/normal per the guide - here that reads as normal speed and smears)
@@ -97,7 +97,9 @@ jumps. The camera never teleports. It RE-ORIENTS - it travels, turns, rises or d
 while she keeps acting, and it must be physically possible for one operator to walk that path in real time.
 
 Choose the phase pattern that serves your story:
-  APPROACH - phase 1 opens on the keyframe framing; the camera then travels IN as the story turns, arriving
+  APPROACH - phase 1 opens on the keyframe framing; the camera then travels IN as the story turns - the
+             push-in target follows the ACTION (the hands, the held object, the point of impact), never
+             the face by default - arriving
              at waist-up or close for the payoff. Best for: expression-driven turns, small reveals in the hands.
   REVEAL   - phase 1 opens on the keyframe; the camera then pulls out with small amplitude or arcs at most a
              quarter turn to RE-COMPOSE elements already visible in the still (re-balancing her against the

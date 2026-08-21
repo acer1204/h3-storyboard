@@ -480,6 +480,24 @@ _HB_FUNC = {"the", "a", "an", "her", "his", "their", "she", "he", "they", "it", 
             "slightly", "moment", "later", "finally", "begins", "starts", "continues"}
 
 
+_HB_CAM_CLAUSE = re.compile(r"[Tt]he camera\b[^.;:]*")
+
+
+def _habit_cam_sigs(content):
+    """運鏡簽名：動詞＋目標（去掉幅度/速度/尾句）。static shot 是規定的開場，不列。"""
+    sigs = set()
+    for cl in _HB_CAM_CLAUSE.findall(content or ""):
+        t = cl.lower()
+        t = re.sub(r"\s*with (?:small|large|medium)\s+amplitude", "", t)
+        t = re.sub(r"\s*at (?:slow|fast|normal|moderate)\s+speed", "", t)
+        t = re.split(r"\b(?:as|while|until|revealing|so)\b", t)[0]
+        t = re.sub(r"^the camera\s+", "", t)
+        t = re.sub(r"\s+", " ", t).strip(" .,-")
+        if t and "static shot" not in t and len(t.split()) >= 2:
+            sigs.add(t)
+    return sigs
+
+
 def _habit_prose(content):
     """imd 欄位 -> 只留劇情動作的散文（去掉運鏡句、鎖定句、台詞、標記）。"""
     imd = content or ""
@@ -528,17 +546,22 @@ def habit_stats(mode, max_images=30, min_images=5):
         except Exception:
             continue
         prose = _habit_prose(rec.get("content", ""))
-        docs[key] = (_habit_grams(prose), " ".join(re.findall(r"[a-z][a-z'-]*", prose.lower())))
+        docs[key] = (_habit_grams(prose), " ".join(re.findall(r"[a-z][a-z'-]*", prose.lower())),
+                     _habit_cam_sigs(rec.get("content", "")))
         if len(docs) >= max_images:
             break
     n = len(docs)
     if n < min_images:
-        return {"images": n, "phrases": [], "note": "紀錄不足 %d 張不同圖片，暫不啟用" % min_images}
+        return {"images": n, "phrases": [], "camera": [], "note": "紀錄不足 %d 張不同圖片，暫不啟用" % min_images}
     df = {}
-    for grams, _ in docs.values():
+    for grams, _, _ in docs.values():
         for g in grams:
             df[g] = df.get(g, 0) + 1
-    texts = [t for _, t in docs.values()]
+    texts = [t for _, t, _ in docs.values()]
+    camdf = {}
+    for _, _, sigs in docs.values():
+        for g in sigs:
+            camdf[g] = camdf.get(g, 0) + 1
 
     def dfreq(g):
         pat = " " + g + " "
@@ -595,7 +618,15 @@ def habit_stats(mode, max_images=30, min_images=5):
         kept.append((eg, dfreq(eg), shingles(eg)))
     kept = [(g, c) for g, c, _ in kept]
     kept.sort(key=lambda x: -x[1])
-    return {"images": n, "phrases": [{"p": g, "n": c, "pct": round(c * 100 / n)} for g, c in kept[:8]]}
+    cam = sorted(((g, c) for g, c in camdf.items() if c >= thresh), key=lambda x: -x[1])
+    camkept = []
+    for g, c in cam:                                       # 子字串去重（pushes in on her face / pushes in on her）
+        if any(g in kg or kg in g for kg, _ in camkept):
+            continue
+        camkept.append((g, c))
+    return {"images": n,
+            "phrases": [{"p": g, "n": c, "pct": round(c * 100 / n)} for g, c in kept[:8]],
+            "camera": [{"p": g, "n": c, "pct": round(c * 100 / n)} for g, c in camkept[:5]]}
 
 
 def load_lessons():
