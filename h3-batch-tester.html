@@ -473,7 +473,7 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
   <div class="panel">
     <h3>ComfyUI 整合</h3>
     <p class="ph">「送 ComfyUI 生成」用的工作流模板 = ComfyUI 最近一次成功的生成。
-      模板兩種來源：在 ComfyUI 成功跑一次後按「用最近一次成功生成更新模板」，或直接上傳 ComfyUI 選單 <b>Export (API)</b> 匯出的 workflow JSON（瀏覽器「Save」存的 UI 格式不行，會提示）。之後每次送出只替換圖片（全解析度原圖）、三個欄位與影片秒數。</p>
+      模板兩種來源：在 ComfyUI 成功跑一次後按「用最近一次成功生成更新模板」，或直接上傳 workflow JSON——<b>Export (API)</b> 檔＝可執行的節點圖；<b>Save</b> 存的 UI 格式檔＝掛為內嵌 metadata（影片內嵌工作流靠它）。兩種都吃，先匯 API 再匯 UI 最完整。之後每次送出只替換圖片（全解析度原圖）、三個欄位與影片秒數。</p>
     <div class="row">
       <button class="ghost mini" id="ctpl">用最近一次成功生成更新模板</button>
       <button class="ghost mini" id="ctplfilebtn">從 workflow.json 匯入模板</button>
@@ -2601,7 +2601,9 @@ $("#ctplfile").onchange = async e => {
     const j = await r.json();
     $("#ctplstat").textContent = j.error
       ? "失敗：" + j.error
-      : `已匯入 ${f.name}（${j.nodes} 節點，mode ${j.mode}${j.ui_meta_carried ? "，UI metadata 已從舊模板沿用 ✓" : (j.has_ui_meta ? "" : "，無 UI metadata — 影片不會內嵌工作流。要恢復：在 ComfyUI 成功跑一次後按「用最近一次成功生成更新模板」")}）`;
+      : (j.ui_meta_attached
+        ? `已把 ${f.name} 掛為內嵌 metadata ✓ — 之後的影片會重新內嵌工作流`
+        : `已匯入 ${f.name}（${j.nodes} 節點，mode ${j.mode}${j.ui_meta_carried ? "，UI metadata 已從舊模板沿用 ✓" : (j.has_ui_meta ? "" : "，無 UI metadata — 再上傳一份 ComfyUI「Save」存的 UI 格式 workflow.json 即可補上（影片才會內嵌工作流）")}）`);
   }catch(err){ $("#ctplstat").textContent = "失敗：" + err.message; }
 };
 $("#ctpl").onclick = async () => {

@@ -657,9 +657,20 @@ def comfy_template_from_json(body):
     if isinstance(body.get("graph"), dict):
         g, extra = body["graph"], (body.get("extra_data") if isinstance(body.get("extra_data"), dict) else {})
     elif isinstance(body.get("nodes"), list):
-        raise ValueError("這是 UI 格式的 workflow（Save 存出來的 nodes/links）。"
-                         "請在 ComfyUI 左上選單用 Export (API) 匯出再上傳，"
-                         "或先成功跑一次後按「用最近一次成功生成更新模板」。")
+        # UI 格式（Save 存的 nodes/links）：不能執行，但它正是影片內嵌 workflow 用的 metadata。
+        # 把它掛到現有模板上，影片就會重新內嵌工作流 — 不必先跑一次。
+        if not os.path.exists(COMFY_TEMPLATE):
+            raise ValueError("這是 UI 格式檔（可當內嵌 metadata），但目前還沒有模板可掛。"
+                             "請先上傳 Export (API) 檔、或按「用最近一次成功生成更新模板」，再上傳這個檔。")
+        with open(COMFY_TEMPLATE, encoding="utf-8") as f:
+            tpl = json.load(f)
+        g0 = tpl.get("graph") if isinstance(tpl.get("graph"), dict) else tpl
+        extra0 = tpl.get("extra_data") if isinstance(tpl.get("extra_data"), dict) else {}
+        extra0.setdefault("extra_pnginfo", {})["workflow"] = body
+        with open(COMFY_TEMPLATE, "w", encoding="utf-8") as f:
+            json.dump({"graph": g0, "extra_data": extra0}, f, ensure_ascii=False, indent=1)
+        return {"nodes": len(g0), "mode": "?", "has_ui_meta": True, "ui_meta_attached": True,
+                "backup": os.path.exists(COMFY_TEMPLATE + ".bak")}
     elif body and all(isinstance(v, dict) and "class_type" in v for v in body.values()):
         g, extra = body, {}
     else:
