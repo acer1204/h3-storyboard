@@ -18,6 +18,7 @@ H3 Prompt 批次產生器 - 本機服務
   GET    /api/comfy/status/<id> -> 查佇列/執行/完成狀態
   POST   /api/comfy/refresh     -> 以 ComfyUI 最近一次成功生成更新模板
   POST   /api/comfy/template    -> 直接上傳 workflow JSON 當模板（ComfyUI 選單 Export (API) 的檔案）
+  GET    /api/comfy/params      -> 模板目前的工作流參數（FPS/解析度/步數/shift）與可選清單
 
   GET    /api/media             -> 媒體庫檔案清單（ComfyUI output）
   GET    /api/media/file/<path> -> 取檔（支援 Range，?dl=1 強制下載）
@@ -723,7 +724,85 @@ def comfy_capture_template():
     return {"prompt_id": pid, "nodes": len(g), "output": out}
 
 
-def comfy_build(imd, soundscape, music, image_name, duration=None):
+# 比例預設（DaSiWa_ResolutionScaleCalculator 的合法值；全部直式 寬:高）
+ASPECTS = [("1:1 - Square", 1, 1), ("2:3 - Classic", 2, 3), ("3:4 - Photo", 3, 4),
+           ("5:8 - Tall", 5, 8), ("9:16 - Social", 9, 16), ("9:21 - Cinema", 9, 21)]
+RES_PRESETS = ["144p", "240p", "360p", "480p", "540p", "576p", "720p", "900p", "1024p", "1080p",
+               "1152p", "1440p", "2160p", "2K", "4K", "0.26 MP - Preview", "0.36 MP - Small",
+               "0.52 MP - SD", "0.65 MP - Balanced", "0.83 MP - HD", "1.00 MP - 1024p",
+               "1.05 MP - HD+", "1.20 MP - HD++", "1.35 MP - 2K lite", "1.55 MP - 2K",
+               "1.65 MP - 2K+", "1.75 MP - QHD", "2.10 MP - FHD", "3.30 MP - QHD+",
+               "4.75 MP - 2K Pro", "6.50 MP - Production", "8.30 MP - UHD"]
+
+
+def nearest_aspect(w, h):
+    """圖片尺寸 -> 最接近的直式預設 + 是否橫置。回 (preset_name, aw, ah, swap)。"""
+    import math
+    if not w or not h:
+        return ("2:3 - Classic", 2, 3, False)
+    r = w / h
+    best = None
+    for name, aw, ah in ASPECTS:
+        for swap in (False, True):
+            cand = (ah / aw) if swap else (aw / ah)
+            d = abs(math.log(r) - math.log(cand))
+            if best is None or d < best[0]:
+                best = (d, name, aw, ah, swap)
+    return best[1], best[2], best[3], best[4]
+
+
+def apply_wf_params(g, wf, aspect):
+    """把工作流預設參數與比例寫進節點圖。wf/aspect 缺項就不動模板值。"""
+    wf = wf if isinstance(wf, dict) else {}
+    for nid, node in g.items():
+        ct = node.get("class_type")
+        ins = node.get("inputs", {})
+        if ct == "BasicScheduler" and wf.get("steps"):
+            try:
+                v = int(wf["steps"])
+                if 1 <= v <= 100:
+                    ins["steps"] = v
+            except (TypeError, ValueError):
+                pass
+        if ct == "MiniMaxH3SigmaShift":
+            for k in ("shift_video", "shift_audio"):
+                if wf.get(k) is not None and str(wf.get(k)) != "":
+                    try:
+                        v = float(wf[k])
+                        if 0.01 <= v <= 100:
+                            ins[k] = v
+                    except (TypeError, ValueError):
+                        pass
+        if ct == "DaSiWa_EnhancedVideoCombine" and wf.get("fps"):
+            try:
+                v = float(wf["fps"])
+                if 1 <= v <= 120:
+                    fr = ins.get("frame_rate")
+                    if isinstance(fr, list) and len(fr) == 2 and str(fr[0]) in g and "value" in g[str(fr[0])].get("inputs", {}):
+                        g[str(fr[0])]["inputs"]["value"] = v      # PrimitiveFloat「FPS」
+                    else:
+                        ins["frame_rate"] = v
+            except (TypeError, ValueError):
+                pass
+        if ct == "DaSiWa_ResolutionScaleCalculator":
+            if wf.get("resolution_preset") in RES_PRESETS:
+                ins["resolution_preset"] = wf["resolution_preset"]
+            if isinstance(aspect, dict) and aspect.get("preset"):
+                ins["scale_from_image"] = False
+                ins["swap_aspect_when_not_image"] = bool(aspect.get("swap"))
+                if aspect["preset"] == "CUSTOM":
+                    ins["aspect_preset_when_not_image"] = "CUSTOM"
+                    try:
+                        aw, ah = int(aspect.get("w") or 0), int(aspect.get("h") or 0)
+                        if 1 <= aw <= 8192 and 1 <= ah <= 8192:
+                            ins["custom_aspect_width"], ins["custom_aspect_height"] = aw, ah
+                    except (TypeError, ValueError):
+                        pass
+                elif aspect["preset"] in [a[0] for a in ASPECTS]:
+                    ins["aspect_preset_when_not_image"] = aspect["preset"]
+
+
+def comfy_build(imd, soundscape, music, image_name, duration=None, wf=None, aspect=None, image_blob=None):
     """載模板，只換圖與三欄位（＋影片秒數），其餘照舊；種子隨機化避免重複送出被去重。
     extra_data（UI 工作流）同步替換相同欄位——save_metadata 嵌進影片的是它。"""
     import random
@@ -764,6 +843,14 @@ def comfy_build(imd, soundscape, music, image_name, duration=None):
     ins["timeline_data"] = json.dumps(tl, ensure_ascii=False)
     if not done:
         raise ValueError("模板的 timeline 裡沒有圖片項目")
+
+    # 比例：沒指定就依上傳圖片解析度自動匹配最接近的直式預設（含橫置判斷）
+    if not (isinstance(aspect, dict) and aspect.get("preset")) and image_blob:
+        w, h = _img_dims(image_blob)
+        if w and h:
+            name, aw, ah, swap = nearest_aspect(w, h)
+            aspect = {"preset": name, "w": aw, "h": ah, "swap": swap}
+    apply_wf_params(g, wf, aspect)
 
     # 影片秒數：網頁寫 prompt 時用的時長要跟 Director 跑的一致（時間戳才不會超出）
     old_dur = ins.get("duration")
@@ -966,6 +1053,42 @@ class H(SimpleHTTPRequestHandler):
                 if len(items) >= 20:
                     break
             return self.send_json({"count": len(items), "items": items})
+
+        if p == "/api/comfy/params":
+            out = {"presets": RES_PRESETS, "aspects": [a[0] for a in ASPECTS] + ["CUSTOM"],
+                   "fps": None, "resolution_preset": None, "steps": None,
+                   "shift_video": None, "shift_audio": None, "has_template": os.path.exists(COMFY_TEMPLATE)}
+            try:
+                with open(COMFY_TEMPLATE, encoding="utf-8") as f:
+                    tpl = json.load(f)
+                g = tpl.get("graph") if isinstance(tpl.get("graph"), dict) else tpl
+                for nid, node in g.items():
+                    ct = node.get("class_type")
+                    ins = node.get("inputs", {})
+                    if ct == "BasicScheduler" and out["steps"] is None:
+                        out["steps"] = ins.get("steps")
+                    if ct == "MiniMaxH3SigmaShift" and out["shift_video"] is None:
+                        out["shift_video"] = ins.get("shift_video")
+                        out["shift_audio"] = ins.get("shift_audio")
+                    if ct == "DaSiWa_ResolutionScaleCalculator" and out["resolution_preset"] is None:
+                        out["resolution_preset"] = ins.get("resolution_preset")
+                    if ct == "DaSiWa_EnhancedVideoCombine" and out["fps"] is None:
+                        fr = ins.get("frame_rate")
+                        if isinstance(fr, list) and len(fr) == 2 and str(fr[0]) in g:
+                            out["fps"] = g[str(fr[0])].get("inputs", {}).get("value")
+                        elif isinstance(fr, (int, float)):
+                            out["fps"] = fr
+            except Exception:
+                pass
+            try:
+                info = comfy_api("/object_info/DaSiWa_ResolutionScaleCalculator", timeout=6)
+                node = list(info.values())[0]
+                req = node.get("input", {}).get("required", {})
+                if isinstance(req.get("resolution_preset", [None])[0], list):
+                    out["presets"] = req["resolution_preset"][0]
+            except Exception:
+                pass
+            return self.send_json(out)
 
         if p == "/api/habits":
             q = parse_qs(urlparse(self.path).query)
@@ -1337,7 +1460,8 @@ class H(SimpleHTTPRequestHandler):
             try:
                 up = comfy_upload(name, blob)
                 graph, extra = comfy_build(str(body.get("imd", "")), str(body.get("soundscape", "")),
-                                           str(body.get("music", "")), up.get("name", name), dur)
+                                           str(body.get("music", "")), up.get("name", name), dur,
+                                           body.get("wf"), body.get("aspect"), blob)
                 payload = {"prompt": graph, "client_id": "h3-webui"}
                 if extra:
                     payload["extra_data"] = extra

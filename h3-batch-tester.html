@@ -125,6 +125,14 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .seg.sm button{padding:5px 10px;font-size:12px}
 .note-wrap{margin-top:10px}
 .note-wrap label{margin-bottom:5px}
+.card .note{resize:none;overflow:hidden;min-height:4.2em}
+.arwrap{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.arwrap select{max-width:96px}
+.arwrap input[type=number]{width:52px;padding:4px 6px}
+.arswap{font-size:15px;line-height:1;padding:3px 8px;cursor:pointer;border:1px solid var(--line);
+  border-radius:7px;background:none;color:var(--mut)}
+.arswap .ph-ic{display:inline-block;transition:transform .15s}
+.arswap.land .ph-ic{transform:rotate(90deg)}
 textarea.note{min-height:74px;font-family:inherit;font-size:13px;line-height:1.6;resize:vertical;
   padding:8px 10px}
 .card.hide{display:none}
@@ -343,6 +351,10 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
     <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20M6 4v4M10 4v4M14 4v4M18 4v4"/><path d="m10 12 5 3-5 3z"/></svg>
     <span>ComfyUI 媒體庫</span><span class="cnt" id="navMedia"></span></button>
 
+  <button class="nav" data-view="comfy" data-tip="ComfyUI 設定">
+    <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    <span>ComfyUI 設定</span></button>
+
   <button class="nav" data-view="set" data-tip="系統設定">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
     <span>系統設定</span></button>
@@ -446,6 +458,36 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
 </section>
 
 <!-- ============ 系統設定 ============ -->
+<section class="view" id="v-comfy">
+  <h2>ComfyUI 設定</h2>
+  <p class="vs">工作流模板與送出時要覆寫的參數。沒填的欄位一律照模板原值。</p>
+
+  <div class="panel">
+    <h3>ComfyUI 整合</h3>
+    <p class="ph">「送 ComfyUI 生成」用的工作流模板 = ComfyUI 最近一次成功的生成。
+      模板兩種來源：在 ComfyUI 成功跑一次後按「用最近一次成功生成更新模板」，或直接上傳 ComfyUI 選單 <b>Export (API)</b> 匯出的 workflow JSON（瀏覽器「Save」存的 UI 格式不行，會提示）。之後每次送出只替換圖片（全解析度原圖）、三個欄位與影片秒數。</p>
+    <div class="row">
+      <button class="ghost mini" id="ctpl">用最近一次成功生成更新模板</button>
+      <button class="ghost mini" id="ctplfilebtn">從 workflow.json 匯入模板</button>
+      <input type="file" id="ctplfile" accept=".json,application/json" style="display:none">
+      <span class="status" id="ctplstat" style="margin:0"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>⚙️ 工作流預設參數</h3>
+    <p class="ph">送 ComfyUI 生成時覆寫模板裡的對應節點。留空＝用模板原值（括號內顯示模板目前的值）。</p>
+    <div class="grid">
+      <div><label>FPS</label><input type="number" id="wfps" min="1" max="120" step="1" placeholder="模板值"></div>
+      <div><label>解析度</label><select id="wres"><option value="">（照模板）</option></select></div>
+      <div><label>步數 steps</label><input type="number" id="wsteps" min="1" max="100" step="1" placeholder="模板值"></div>
+      <div><label>shift_video</label><input type="number" id="wsv" min="0.01" max="100" step="0.5" placeholder="模板值"></div>
+      <div><label>shift_audio</label><input type="number" id="wsa" min="0.01" max="100" step="0.5" placeholder="模板值"></div>
+    </div>
+    <p class="status" id="wfstat" style="margin-top:8px"></p>
+  </div>
+</section>
+
 <section class="view" id="v-set">
   <h1 class="vh">系統設定</h1>
   <p class="vs">改完即時保存，重新整理不會消失。</p>
@@ -486,18 +528,6 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
     </div>
     <p class="status" id="conn"></p>
     <p class="status" id="saved" style="margin-top:2px"></p>
-  </div>
-
-  <div class="panel">
-    <h3>ComfyUI 整合</h3>
-    <p class="ph">「送 ComfyUI 生成」用的工作流模板 = ComfyUI 最近一次成功的生成。
-      模板兩種來源：在 ComfyUI 成功跑一次後按「用最近一次成功生成更新模板」，或直接上傳 ComfyUI 選單 <b>Export (API)</b> 匯出的 workflow JSON（瀏覽器「Save」存的 UI 格式不行，會提示）。之後每次送出只替換圖片（全解析度原圖）、三個欄位與影片秒數。</p>
-    <div class="row">
-      <button class="ghost mini" id="ctpl">用最近一次成功生成更新模板</button>
-      <button class="ghost mini" id="ctplfilebtn">從 workflow.json 匯入模板</button>
-      <input type="file" id="ctplfile" accept=".json,application/json" style="display:none">
-      <span class="status" id="ctplstat" style="margin:0"></span>
-    </div>
   </div>
 
   <div class="panel">
@@ -645,7 +675,8 @@ const onServer = location.protocol.startsWith("http");
 /* ================= 設定持久化 ================= */
 const SKEY="h3.settings.v1", SPKEY="h3.sp.v1", VKEY="h3.view.v1";
 const FIELDS={server:"#server",dur:"#dur",temp:"#temp",topp:"#topp",think:"#think",tr:"#tr",
-              retry:"#retry",retrylvl:"#retrylvl",mode:"#mode"};
+              retry:"#retry",retrylvl:"#retrylvl",mode:"#mode",
+              wfps:"#wfps",wres:"#wres",wsteps:"#wsteps",wsv:"#wsv",wsa:"#wsa"};
 const store={
   get(k){try{return localStorage.getItem(k)}catch(e){return null}},
   set(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}},
@@ -1328,6 +1359,7 @@ function setView(v){
   store.set(VKEY, v);
   window.scrollTo(0, 0);
   if (v === "hist") loadHist();
+  if (v === "comfy") loadWfParams();
   if (v === "media") loadMedia();
   if (v === "uploads") loadUploads();
 }
@@ -1604,11 +1636,18 @@ drop.ondragleave=()=>drop.classList.remove("hot");
 drop.ondrop=e=>{e.preventDefault();drop.classList.remove("hot");add(e.dataTransfer.files)};
 $("#files").onchange=e=>add(e.target.files);
 
+function arFromPreview(it){
+  if (!it.preview || it.ar) return;
+  const im = new Image();
+  im.onload = () => { if (!it.ar){ it.ar = {...nearestAR(im.naturalWidth, im.naturalHeight)}; render(); } };
+  im.src = it.preview;
+}
 function add(fl){
   const imgs=[...fl].filter(f=>f.type.startsWith("image/"));
   imgs.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
   for (const f of imgs) items.push({file:f, name:f.name, state:"pending",
     preview: URL.createObjectURL(f)});
+  items.forEach(arFromPreview);
   render(); $("#run").disabled = !items.length;
   $("#prog").textContent = `${items.length} 張待處理`;
   $("#navRun").textContent = items.length || "";
@@ -1782,6 +1821,7 @@ async function genWithRetry(imgUrl, utext, target, wantShots, onStep){
 async function runOne(it){
   const enc = await encode(it.file);
   it.thumb = enc.thumb; it.full = enc.b64; it.w = enc.w; it.h = enc.h; it.orig = enc.orig || null;
+  if (!it.ar || !it.arTouched) it.ar = {...nearestAR(enc.w, enc.h)};
   if (it.preview){ URL.revokeObjectURL(it.preview); it.preview = null; }
   const t0 = performance.now();
   LORA_NOTE = (it.note || "").trim();
@@ -1969,17 +2009,31 @@ function render(){
           <div class="seg sm">${(curMode()==="onetake"?[2,3]:[1,2,3,4]).map(n =>
             `<button class="${(it.shots||(curMode()==="onetake"?3:1))===n?"on":""}" onclick="setShots(${k},${n})">${curMode()==="onetake"?n+"階段":(n===1?"一鏡":n+"鏡")}</button>`
           ).join("")}</div></div>
-        <div class="note-wrap"><label>補充劇情（選填）</label>
-          <textarea class="note" data-note="${k}" rows="3" placeholder="例如：她正要去趕末班車"
-            oninput="setNote(${k}, this.value)">${esc(it.note||"")}</textarea></div>
+        <div class="note-wrap"><label>輸出比例（寬:高，預設依圖自動匹配）</label>
+          <div class="arwrap">
+            <select onchange="setAR(${k}, this.value)">
+              ${["1:1","2:3","3:4","5:8","9:16","9:21"].map(r => `<option value="${r}" ${(it.ar&&it.ar.preset)===r?"selected":""}>${r}</option>`).join("")}
+              <option value="CUSTOM" ${(it.ar&&it.ar.preset)==="CUSTOM"?"selected":""}>自訂</option>
+            </select>
+            <input type="number" min="1" max="8192" value="${it.ar?it.ar.w:2}" onchange="setARWH(${k}, this.value, null)" title="比例寬">
+            <span class="hint">:</span>
+            <input type="number" min="1" max="8192" value="${it.ar?it.ar.h:3}" onchange="setARWH(${k}, null, this.value)" title="比例高">
+            <button class="arswap ${it.ar&&it.ar.swap?"land":""}" onclick="setARSwap(${k})" title="直式／橫式切換">
+              <span class="ph-ic">▯</span> ${it.ar&&it.ar.swap?"橫式":"直式"}</button>
+          </div></div>
       </div>
-      <div><div class="hd"><input type="checkbox" class="selck" ${it.sel?"checked":""} onclick="toggleSel(${k}, this.checked)" title="勾選後可批次生成 / 批次送 ComfyUI"><span class="badge ${b[0]}">${b[1]}</span><span class="name">${esc(it.name)}</span>${it.state2?`<span class="meta" style="margin:0;color:var(--warn)">${esc(it.state2)}</span>`:""}</div>
+      <div>
+        <div class="note-wrap" style="margin:0 0 8px"><label>補充劇情（選填）</label>
+          <textarea class="note" data-note="${k}" rows="3" placeholder="例如：她正要去趕末班車；台詞用「」括起來"
+            oninput="setNote(${k}, this.value); agrow(this)">${esc(it.note||"")}</textarea></div>
+        <div class="hd"><input type="checkbox" class="selck" ${it.sel?"checked":""} onclick="toggleSel(${k}, this.checked)" title="勾選後可批次生成 / 批次送 ComfyUI"><span class="badge ${b[0]}">${b[1]}</span><span class="name">${esc(it.name)}</span>${it.state2?`<span class="meta" style="margin:0;color:var(--warn)">${esc(it.state2)}</span>`:""}</div>
       ${it.elapsed?`<div class="meta"><span>${it.elapsed}s</span>
         <span>${it.usage.completion_tokens||0} tokens</span>
         <span>${(it.timings.predicted_per_second||0).toFixed(0)} t/s</span>
         ${it.attempts>1?`<span>${it.attempts} 次嘗試</span>`:""}</div>`:""}
       ${inner}</div></div>`;
   }).join("");
+  document.querySelectorAll("#out .note").forEach(t => agrow(t));
   updateSelBtns();
   if (keep){
     const el = document.querySelector(`[data-note="${keep.k}"]`);
@@ -2018,6 +2072,64 @@ window.redo = async k => { const it=items[k]; it.state="running"; it.keep=true; 
   try{ await runOne(it) }catch(e){ it.state="error"; it.err=e.message; render() } convergence(); };
 window.copyOne = k => navigator.clipboard.writeText(items[k].content);
 window.setNote = (k, v) => { if (items[k]) items[k].note = v; };
+window.agrow = t => { t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; };
+/* ---- 輸出比例（直式 寬:高 ＋ 橫式切換）；預設依圖片解析度自動匹配 ---- */
+const AR_LIST = [["1:1",1,1],["2:3",2,3],["3:4",3,4],["5:8",5,8],["9:16",9,16],["9:21",9,21]];
+function nearestAR(w, h){
+  if (!w || !h) return {preset:"2:3", w:2, h:3, swap:false};
+  const r = w / h; let best = null;
+  for (const [name, aw, ah] of AR_LIST) for (const swap of [false, true]){
+    const cand = swap ? ah/aw : aw/ah;
+    const d = Math.abs(Math.log(r) - Math.log(cand));
+    if (!best || d < best.d) best = {d, preset:name, w:aw, h:ah, swap};
+  }
+  return {preset:best.preset, w:best.w, h:best.h, swap:best.swap};
+}
+window.setAR = (k, v) => { const it = items[k]; if (!it) return;
+  if (v === "CUSTOM"){ it.ar = {...(it.ar||{w:2,h:3,swap:false}), preset:"CUSTOM"}; }
+  else { const a = AR_LIST.find(x => x[0] === v); it.ar = {preset:v, w:a[1], h:a[2], swap:(it.ar||{}).swap||false}; }
+  render(); };
+window.setARWH = (k, w, h) => { const it = items[k]; if (!it) return;
+  it.ar = {...(it.ar||{preset:"CUSTOM",w:2,h:3,swap:false})};
+  if (w != null) it.ar.w = Math.max(1, parseInt(w)||1);
+  if (h != null) it.ar.h = Math.max(1, parseInt(h)||1);
+  const hit = AR_LIST.find(x => x[1] === it.ar.w && x[2] === it.ar.h);
+  it.ar.preset = hit ? hit[0] : "CUSTOM";
+  render(); };
+window.setARSwap = k => { const it = items[k]; if (!it) return;
+  it.ar = {...(it.ar||{preset:"2:3",w:2,h:3,swap:false}), swap:!(it.ar||{}).swap}; render(); };
+function arPayload(it){
+  if (!it || !it.ar) return null;
+  const name = it.ar.preset === "CUSTOM" ? "CUSTOM"
+    : ({"1:1":"1:1 - Square","2:3":"2:3 - Classic","3:4":"3:4 - Photo","5:8":"5:8 - Tall","9:16":"9:16 - Social","9:21":"9:21 - Cinema"})[it.ar.preset];
+  return {preset:name, w:it.ar.w, h:it.ar.h, swap:!!it.ar.swap};
+}
+/* ---- 工作流預設參數（ComfyUI 設定頁） ---- */
+async function loadWfParams(){
+  if (!onServer) return;
+  try{
+    const j = await (await fetch("/api/comfy/params")).json();
+    const sel = $("#wres");
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">（照模板：${esc(j.resolution_preset||"?")}）</option>`
+      + (j.presets||[]).map(x => `<option value="${esc(x)}" ${x===cur?"selected":""}>${esc(x)}</option>`).join("");
+    $("#wfps").placeholder = j.fps != null ? `模板 ${j.fps}` : "模板值";
+    $("#wsteps").placeholder = j.steps != null ? `模板 ${j.steps}` : "模板值";
+    $("#wsv").placeholder = j.shift_video != null ? `模板 ${j.shift_video}` : "模板值";
+    $("#wsa").placeholder = j.shift_audio != null ? `模板 ${j.shift_audio}` : "模板值";
+    $("#wfstat").textContent = j.has_template ? "" : "還沒有模板 — 先更新或匯入模板，參數才有東西可以覆寫";
+  }catch(e){ $("#wfstat").textContent = "讀取失敗：" + e.message; }
+}
+function wfOverrides(){
+  const o = {};
+  const g = id => { const el = $(id); return el && el.value.trim() ? el.value.trim() : null; };
+  if (g("#wfps")) o.fps = g("#wfps");
+  if (g("#wres")) o.resolution_preset = g("#wres");
+  if (g("#wsteps")) o.steps = g("#wsteps");
+  if (g("#wsv")) o.shift_video = g("#wsv");
+  if (g("#wsa")) o.shift_audio = g("#wsa");
+  return Object.keys(o).length ? o : null;
+}
 window.setShots = (k, n) => { if (items[k]) { items[k].shots = n; render(); } };
 
 /* ================= 歷史紀錄 ================= */
@@ -2380,6 +2492,7 @@ ${r.trash}
 loadHist();
 refreshHabits(true);
 refreshLessons();
+loadWfParams();
 renderPrompts();   // 先同步畫出內建，再去伺服器補其他組
 loadPrompts().then(() => { setMode(curMode()); loadLoras(); });
 
@@ -2442,13 +2555,13 @@ async function comfyPoll(pid, set, btn){
 window.comfyFromRec = (id, btnEl) => {
   const stat = document.querySelector("#mcstat");
   fetch(API + "/" + id).then(r => r.json()).then(rec => {
-    comfySend({rec_id: id, dur: rec.dur || $("#dur").value, ...comfyFields(rec.content)}, stat, btnEl);
+    comfySend({rec_id: id, dur: rec.dur || $("#dur").value, wf: wfOverrides(), ...comfyFields(rec.content)}, stat, btnEl);
   });
 };
 window.comfyFromItem = (k, btnEl) => {
   const it = items[k]; if (!it || !it.content) return;
   const stat = document.querySelector(`[data-cstat="${k}"]`);
-  comfySend({image: it.orig || it.full, dur: $("#dur").value, ...comfyFields(it.content)}, stat, btnEl);
+  comfySend({image: it.orig || it.full, dur: $("#dur").value, wf: wfOverrides(), aspect: arPayload(it), ...comfyFields(it.content)}, stat, btnEl);
 };
 
 $("#ctplfilebtn").onclick = () => $("#ctplfile").click();
