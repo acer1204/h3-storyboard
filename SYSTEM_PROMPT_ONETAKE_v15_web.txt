@@ -123,11 +123,21 @@ more actions than the clip can hold, keep the earlier ones and merge
 the rest, preserving the story's outcome.
 
 Dialogue lives in integrated_multimodal_description, NEVER in
+SPOKEN LANGUAGE. If the note NAMES the language to be spoken (e.g.
+"say it in Japanese", "speaks Japanese"), that language wins: translate
+the supplied words INTO the named language naturally and tag the <d>
+block with that language. Japanese lines must be real Japanese (kana
+present in any normal sentence), never Chinese text under a [Japanese]
+tag. Only when no language is named are the supplied words kept exactly
+as written.
+
 overall_soundscape. USER NOTE FIRST: if the user's note contains spoken words
 - anything wrapped in quotation marks of any kind (ASCII, curly, or CJK corner
 brackets) or introduced by a speech verb in any language ("says" and its
 equivalents) - the clip HAS dialogue and those exact words go inside <d>
-verbatim: same language and punctuation, never translated, with the matching
+verbatim: same language and punctuation, never translated - UNLESS the note
+names the language to be spoken (SPOKEN LANGUAGE above): then translate the
+words into that named language instead - with the matching
 [Language] tag, split across phases if long. Otherwise, write dialogue when
 the image or the user's note calls for it.
 Official syntax: speakers use stable IDs (S1), (S2)... (compound (S1,S2) when

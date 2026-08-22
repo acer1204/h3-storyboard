@@ -139,10 +139,20 @@ closest action the image CAN show - never silently dropped. If the note
 lists more actions than the clip can hold, keep the earlier ones and
 merge the rest, preserving the story's outcome.
 
+SPOKEN LANGUAGE. If the note NAMES the language to be spoken (e.g.
+"say it in Japanese", "speaks Japanese"), that language wins: translate
+the supplied words INTO the named language naturally and tag the <d>
+block with that language. Japanese lines must be real Japanese (kana
+present in any normal sentence), never Chinese text under a [Japanese]
+tag. Only when no language is named are the supplied words kept exactly
+as written.
+
 USER NOTE FIRST. If the user's note contains spoken words - anything in
 quotation marks of any style (English or CJK) or introduced by a speech
 verb in any language - the clip HAS dialogue, and those exact words go
 inside <d> verbatim: same language, same punctuation, never translated
+- UNLESS the note names the language to be spoken (SPOKEN LANGUAGE
+above): then translate the words into that named language instead
 or rewritten, with the matching [Language] tag. Otherwise, write
 dialogue when the image or the user's note calls for it.
 

@@ -1540,7 +1540,17 @@ function validate(c, target, wantShots){
     else {
       const lang = lm[1].trim(), txt = lm[2].trim();
       if (/english/i.test(lang) && /[぀-ヿ一-鿿]/.test(txt)) E.push("語言標籤 [English] 但內容不是英文");
-      if (/japanese/i.test(lang) && !/[぀-ヿ一-鿿]/.test(txt)) W.push("語言標籤 [Japanese] 但內容看起來不是日文");
+      if (/japanese/i.test(lang)){
+        if (!/[぀-ヿ一-鿿]/.test(txt)) W.push("語言標籤 [Japanese] 但內容看起來不是日文");
+        /* 簡體專用字不可能是日文 — 常見情況：中文台詞被直接貼上 [Japanese] 標籤 */
+        const SIMP = "让说话这们问间为发见觉议记词请读谁调员购输运过还进远连关兴动劳势华单变声处备复够头学实写军农净满济应录忆态总恶惊愿战户报择挤损换据营术样机权条极构标检个东买卖对时张继续钟视频叫笑热爱点";
+        const hitSimp = [...txt].filter(c => SIMP.includes(c));
+        if (hitSimp.length) E.push(`[Japanese] 標籤但台詞是中文（出現簡體字「${hitSimp.slice(0,3).join("")}」）— 要翻成日文（含假名），不是貼中文`);
+        else {
+          const cjk = (txt.match(/[一-鿿]/g) || []).length;
+          if (cjk >= 5 && !/[぀-ヿ]/.test(txt)) E.push("[Japanese] 台詞整句無假名 — 這是中文不是日文；翻成自然的日文（正常日文句必含假名）");
+        }
+      }
       if (/\((?:whisper|shout|laugh|sigh|pause|softly|quietly|crying|giggl)[^)]*\)|\*[^*]+\*/i.test(txt)) stage++;
       dl.push({lang, txt});
     }
