@@ -146,6 +146,10 @@ textarea.note{min-height:74px;font-family:inherit;font-size:13px;line-height:1.6
 .card>.thumb .ph{aspect-ratio:3/4;border-radius:9px;background:var(--code);display:grid;place-items:center;
   color:var(--faint);font-size:12px;margin:0}
 .hd{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:9px}
+.xdel{margin-left:auto;flex:none;width:26px;height:26px;line-height:1;border:1px solid var(--line);
+  border-radius:7px;background:none;color:var(--faint);cursor:pointer;font-size:13px}
+.xdel:hover{border-color:var(--acc);color:var(--acc)}
+.xdel:disabled{opacity:.35;cursor:default}
 .name{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--mut);word-break:break-all}
 .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
 .b-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
@@ -2035,7 +2039,7 @@ function render(){
         <div class="note-wrap" style="margin:0 0 8px"><label>補充劇情（選填）</label>
           <textarea class="note" data-note="${k}" rows="3" placeholder="例如：她正要去趕末班車；台詞用「」括起來"
             oninput="setNote(${k}, this.value); agrow(this)">${esc(it.note||"")}</textarea></div>
-        <div class="hd"><input type="checkbox" class="selck" ${it.sel?"checked":""} onclick="toggleSel(${k}, this.checked)" title="勾選後可批次生成 / 批次送 ComfyUI"><span class="badge ${b[0]}">${b[1]}</span><span class="name">${esc(it.name)}</span>${it.state2?`<span class="meta" style="margin:0;color:var(--warn)">${esc(it.state2)}</span>`:""}</div>
+        <div class="hd"><input type="checkbox" class="selck" ${it.sel?"checked":""} onclick="toggleSel(${k}, this.checked)" title="勾選後可批次生成 / 批次送 ComfyUI"><span class="badge ${b[0]}">${b[1]}</span><span class="name">${esc(it.name)}</span>${it.state2?`<span class="meta" style="margin:0;color:var(--warn)">${esc(it.state2)}</span>`:""}<button class="xdel" onclick="removeItem(${k})" ${it.state==="running"?"disabled":""} title="從清單移除這張（不影響已存的歷史紀錄）">✕</button></div>
       ${it.elapsed?`<div class="meta"><span>${it.elapsed}s</span>
         <span>${it.usage.completion_tokens||0} tokens</span>
         <span>${(it.timings.predicted_per_second||0).toFixed(0)} t/s</span>
@@ -2080,6 +2084,16 @@ $("#comfysel").onclick = async () => {
 window.redo = async k => { const it=items[k]; it.state="running"; it.keep=true; it.zh=null; render();
   try{ await runOne(it) }catch(e){ it.state="error"; it.err=e.message; render() } convergence(); };
 window.copyOne = k => navigator.clipboard.writeText(items[k].content);
+window.removeItem = k => {
+  const it = items[k]; if (!it || it.state === "running") return;
+  if (it.preview) URL.revokeObjectURL(it.preview);
+  items.splice(k, 1);
+  render();
+  $("#run").disabled = !items.filter(i => i.state === "pending" || i.state === "error").length && !items.length;
+  $("#navRun").textContent = items.length || "";
+  $("#prog").textContent = items.length ? `${items.length} 張` : "";
+  if (!items.length){ $("#conv").style.display = "none"; $("#fbar").style.display = "none"; }
+};
 window.setNote = (k, v) => { if (items[k]) items[k].note = v; };
 window.agrow = t => { t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; };
 /* ---- 輸出比例（直式 寬:高 ＋ 橫式切換）；預設依圖片解析度自動匹配 ---- */
