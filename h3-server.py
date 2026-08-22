@@ -680,6 +680,22 @@ def comfy_template_from_json(body):
         raise ValueError("timeline_data 不是合法 JSON")
     if not any(it.get("type") == "image" and it.get("enabled", True) for it in tl.get("items", [])):
         raise ValueError("timeline 裡沒有啟用的圖片項目 — 模板必須是一個帶參考圖的 I2VA 工作流")
+    carried = False
+    if not ((extra.get("extra_pnginfo") or {}).get("workflow") or {}).get("nodes"):
+        # Export (API) 檔沒有 UI metadata（影片內嵌 workflow 靠它）。如果現有模板有、
+        # 而且節點組成一致（= 同一個工作流），就沿用舊的 UI metadata，內嵌不中斷。
+        try:
+            with open(COMFY_TEMPLATE, encoding="utf-8") as f:
+                old_tpl = json.load(f)
+            old_extra = old_tpl.get("extra_data") or {}
+            old_g = old_tpl.get("graph") if isinstance(old_tpl.get("graph"), dict) else {}
+            if ((old_extra.get("extra_pnginfo") or {}).get("workflow") or {}).get("nodes"):
+                if sorted(n.get("class_type", "") for n in old_g.values()) == \
+                   sorted(n.get("class_type", "") for n in g.values()):
+                    extra = old_extra
+                    carried = True
+        except Exception:
+            pass
     if os.path.exists(COMFY_TEMPLATE):
         try:
             os.replace(COMFY_TEMPLATE, COMFY_TEMPLATE + ".bak")
@@ -689,6 +705,7 @@ def comfy_template_from_json(body):
         json.dump({"graph": g, "extra_data": extra}, f, ensure_ascii=False, indent=1)
     return {"nodes": len(g), "mode": ins.get("mode", "?"),
             "has_ui_meta": bool(((extra.get("extra_pnginfo") or {}).get("workflow") or {}).get("nodes")),
+            "ui_meta_carried": carried,
             "backup": os.path.exists(COMFY_TEMPLATE + ".bak")}
 
 

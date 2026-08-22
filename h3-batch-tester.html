@@ -2601,7 +2601,7 @@ $("#ctplfile").onchange = async e => {
     const j = await r.json();
     $("#ctplstat").textContent = j.error
       ? "失敗：" + j.error
-      : `已匯入 ${f.name}（${j.nodes} 節點，mode ${j.mode}${j.has_ui_meta ? "" : "，無 UI metadata — 影片不會內嵌工作流，僅此差別"}）`;
+      : `已匯入 ${f.name}（${j.nodes} 節點，mode ${j.mode}${j.ui_meta_carried ? "，UI metadata 已從舊模板沿用 ✓" : (j.has_ui_meta ? "" : "，無 UI metadata — 影片不會內嵌工作流。要恢復：在 ComfyUI 成功跑一次後按「用最近一次成功生成更新模板」")}）`;
   }catch(err){ $("#ctplstat").textContent = "失敗：" + err.message; }
 };
 $("#ctpl").onclick = async () => {
