@@ -2015,9 +2015,10 @@ function render(){
               ${["1:1","2:3","3:4","5:8","9:16","9:21"].map(r => `<option value="${r}" ${(it.ar&&it.ar.preset)===r?"selected":""}>${r}</option>`).join("")}
               <option value="CUSTOM" ${(it.ar&&it.ar.preset)==="CUSTOM"?"selected":""}>自訂</option>
             </select>
-            <input type="number" min="1" max="8192" value="${it.ar?it.ar.w:2}" onchange="setARWH(${k}, this.value, null)" title="比例寬">
+            ${(it.ar&&it.ar.preset)==="CUSTOM" ? `
+            <input type="number" min="1" max="8192" value="${it.ar.w}" onchange="setARWH(${k}, this.value, null)" title="比例寬">
             <span class="hint">:</span>
-            <input type="number" min="1" max="8192" value="${it.ar?it.ar.h:3}" onchange="setARWH(${k}, null, this.value)" title="比例高">
+            <input type="number" min="1" max="8192" value="${it.ar.h}" onchange="setARWH(${k}, null, this.value)" title="比例高">` : ""}
             <button class="arswap ${it.ar&&it.ar.swap?"land":""}" onclick="setARSwap(${k})" title="直式／橫式切換">
               <span class="ph-ic">▯</span> ${it.ar&&it.ar.swap?"橫式":"直式"}</button>
           </div></div>
