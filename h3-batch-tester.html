@@ -1583,8 +1583,14 @@ function validate(c, target, wantShots){
   /* the user's note (補充劇情) asked for spoken words -> they must be in the output */
   { const note = (typeof LORA_NOTE === "string") ? LORA_NOTE : "";
     const q = [...note.matchAll(/[「『“"]([^」』”"]{1,80})[」』”"]/g)].map(m => m[1].trim()).filter(Boolean);
+    /* 劇情有指定說話語言時，台詞會被翻成該語言 — 檢查「有該語言的台詞」而非逐字比對 */
+    const lm2 = note.match(/(?:說|讲|講|说|用)\s*(日|英|中|韓|韩)(?:語|语|文)|in\s+(Japanese|English|Chinese|Korean)|speaks?\s+(Japanese|English|Chinese|Korean)/i);
+    const reqLang = lm2 ? (({"日":"japanese","英":"english","中":"chinese","韓":"korean","韩":"korean"})[lm2[1]] || (lm2[2] || lm2[3] || "").toLowerCase()) : null;
     if (q.length && !dAll) E.push("補充劇情裡有台詞（" + q[0].slice(0, 20) + "…）但輸出沒有任何 <d> 對白");
-    else if (q.length){
+    else if (q.length && reqLang){
+      if (!dl.some(x => (x.lang || "").toLowerCase().includes(reqLang)))
+        W.push("劇情指定說 " + reqLang + "，但輸出沒有對應語言標籤的台詞");
+    } else if (q.length){
       const inner = dBlocks.map(m => m[1]).join("\n");
       const miss = q.filter(t => !inner.includes(t));
       if (miss.length) W.push("補充劇情的台詞沒有逐字出現在 <d> 裡（官方：使用者給的台詞逐字保留、不翻譯）：" + miss[0].slice(0, 20));
