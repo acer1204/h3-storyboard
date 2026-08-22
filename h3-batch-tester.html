@@ -265,7 +265,12 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
 .fbchip{font-size:11.5px;padding:3px 9px;border:1px solid var(--line);border-radius:99px;cursor:pointer;
   background:none;color:var(--mut)}
 .fbchip.on{border-color:var(--acc);color:var(--acc);background:color-mix(in srgb,var(--acc) 10%,transparent)}
-.hcell .rmark{position:absolute;left:7px;top:7px;font-size:13px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.hcell .rmark{position:absolute;left:7px;top:32px;font-size:13px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.hcell .hck{position:absolute;top:7px;left:7px;width:20px;height:20px;border-radius:6px;
+  border:1.5px solid rgba(255,255,255,.75);background:rgba(20,18,14,.45);color:#fff;font-size:13px;
+  line-height:17px;text-align:center;cursor:pointer;z-index:2}
+.hcell.hsel{border-color:var(--acc);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 45%,transparent)}
+.hcell.hsel .hck{background:var(--acc);border-color:var(--acc)}
 .hablist{font-size:12.5px;line-height:1.9;color:var(--mut)}
 .hablist b{color:var(--fg);font-weight:500;font-family:ui-monospace,Consolas,monospace}
 .lesrow{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
@@ -416,6 +421,8 @@ table.ltab .empty{color:var(--faint);font-size:12.5px;padding:10px 6px}
     <div class="row" style="margin-bottom:12px">
       <input type="text" id="hfilter" placeholder="以檔名篩選" style="max-width:240px">
       <button class="ghost mini" id="hrefresh">重新整理</button>
+      <button class="ghost mini" id="hselnone">取消選取</button>
+      <button class="mini" id="himport" disabled>匯入到上傳並處理</button>
       <button class="ghost mini" id="hclear">全部清除</button>
       <span class="status" id="hcount" style="margin:0"></span>
     </div>
@@ -2224,6 +2231,8 @@ function renderHist(){
   hist.forEach(r => totals[r.image] = (totals[r.image] || 0) + 1);
 
   $("#hcount").textContent = `${hgroups.length} 張圖 · ${rows.length} / ${hist.length} 筆`;
+  hSel = new Set([...hSel].filter(id => hist.some(r => r.id === id)));
+  updateHImport();
   updateHBar();
   $("#navHist").textContent = hist.length || "";
   $("#sfHist").textContent = `紀錄 ${hist.length} 筆`;
@@ -2231,7 +2240,9 @@ function renderHist(){
     const r = g.vs[0];                       // 最新一版代表這張卡
     const d = r.nerr ? "s-fail" : (r.nwarn ? "s-warn" : "s-ok");
     const total = totals[g.image] || g.vs.length;
-    return `<button class="hcell" onclick="openGroup(${i})" title="${esc(g.image)} · ${total} 個版本">
+    const sel = hSel.has(r.id);
+    return `<button class="hcell ${sel?"hsel":""}" onclick="openGroup(${i})" title="${esc(g.image)} · ${total} 個版本">
+      <span class="hck" onclick="event.stopPropagation(); hToggle('${r.id}')" title="勾選後可匯入到上傳並處理">${sel?"✓":""}</span>
       <span class="sdot ${d}"></span>
       <span class="mtag ${hMode(r)==="onetake"?"ot":""}">${hMode(r)==="onetake"?"一鏡":"硬切"}</span>
       ${r.rating ? `<span class="rmark">${r.rating==="up"?"👍":"👎"}</span>` : ""}
@@ -2241,6 +2252,37 @@ function renderHist(){
       <div class="cap t">${esc(r.ts.slice(5,16))} · ${esc(r.dur)}</div></button>`;
   }).join("") || '<span class="hint">還沒有紀錄</span>';
 }
+let hSel = new Set();
+window.hToggle = id => { hSel.has(id) ? hSel.delete(id) : hSel.add(id); renderHist(); };
+function updateHImport(){
+  const b = $("#himport"); if (!b) return;
+  b.disabled = !hSel.size;
+  b.textContent = hSel.size ? `匯入 ${hSel.size} 張到上傳並處理` : "匯入到上傳並處理";
+}
+$("#hselnone") && ($("#hselnone").onclick = () => { hSel.clear(); renderHist(); });
+$("#himport") && ($("#himport").onclick = async () => {
+  if (!hSel.size) return;
+  $("#himport").disabled = true;
+  let n = 0;
+  for (const id of [...hSel]){
+    try{
+      const rec = await (await fetch(API + "/" + id)).json();
+      const url = rec.orig_ext ? `/api/orig/${id}.${rec.orig_ext}` : `/api/full/${id}.jpg`;
+      const blob = await (await fetch(url)).blob();
+      const f = new File([blob], rec.image || (id + ".jpg"), {type: blob.type || "image/jpeg"});
+      items.push({file: f, name: f.name, state: "pending", preview: URL.createObjectURL(f),
+                  note: rec.note || "", shots: rec.shots || undefined});
+      n++;
+    }catch(e){}
+  }
+  items.forEach(arFromPreview);
+  render();
+  $("#run").disabled = !items.length;
+  $("#prog").textContent = `${items.length} 張待處理`;
+  $("#navRun").textContent = items.length || "";
+  hSel.clear(); renderHist();
+  setView("run");
+});
 window.openGroup = i => {
   const g = hgroups[i];
   if (g) openRec(g.vs[0].id);
