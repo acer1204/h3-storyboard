@@ -126,12 +126,16 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .note-wrap{margin-top:10px}
 .note-wrap label{margin-bottom:5px}
 .card .note{resize:none;overflow:hidden;min-height:4.2em}
-.arwrap{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
-.arwrap select{max-width:96px}
-.arwrap input[type=number]{width:52px;padding:4px 6px}
-.arswap{font-size:15px;line-height:1;padding:3px 8px;cursor:pointer;border:1px solid var(--line);
-  border-radius:7px;background:none;color:var(--mut)}
-.arswap .ph-ic{display:inline-block;transition:transform .15s}
+.arwrap{display:flex;flex-direction:column;gap:6px}
+.arrow{display:flex;gap:6px;align-items:stretch}
+.arrow select{flex:1;min-width:0;max-width:none}
+.arrow input[type=number]{flex:1;min-width:0;width:auto;text-align:center}
+.arrow .arsep{flex:none;align-self:center;color:var(--faint)}
+.arswap{flex:none;display:flex;align-items:center;gap:5px;font-size:12.5px;padding:0 11px;
+  cursor:pointer;border:1px solid var(--line);border-radius:8px;background:var(--bg);
+  color:var(--mut);white-space:nowrap}
+.arswap:hover{border-color:var(--acc);color:var(--acc)}
+.arswap .ph-ic{display:inline-block;font-size:14px;transition:transform .15s}
 .arswap.land .ph-ic{transform:rotate(90deg)}
 textarea.note{min-height:74px;font-family:inherit;font-size:13px;line-height:1.6;resize:vertical;
   padding:8px 10px}
@@ -2011,16 +2015,20 @@ function render(){
           ).join("")}</div></div>
         <div class="note-wrap"><label>輸出比例（寬:高，預設依圖自動匹配）</label>
           <div class="arwrap">
-            <select onchange="setAR(${k}, this.value)">
-              ${["1:1","2:3","3:4","5:8","9:16","9:21"].map(r => `<option value="${r}" ${(it.ar&&it.ar.preset)===r?"selected":""}>${r}</option>`).join("")}
-              <option value="CUSTOM" ${(it.ar&&it.ar.preset)==="CUSTOM"?"selected":""}>自訂</option>
-            </select>
+            <div class="arrow">
+              <select onchange="setAR(${k}, this.value)">
+                ${["1:1","2:3","3:4","5:8","9:16","9:21"].map(r => `<option value="${r}" ${(it.ar&&it.ar.preset)===r?"selected":""}>${r}</option>`).join("")}
+                <option value="CUSTOM" ${(it.ar&&it.ar.preset)==="CUSTOM"?"selected":""}>自訂</option>
+              </select>
+              <button class="arswap ${it.ar&&it.ar.swap?"land":""}" onclick="setARSwap(${k})" title="直式／橫式切換">
+                <span class="ph-ic">▯</span>${it.ar&&it.ar.swap?"橫式":"直式"}</button>
+            </div>
             ${(it.ar&&it.ar.preset)==="CUSTOM" ? `
-            <input type="number" min="1" max="8192" value="${it.ar.w}" onchange="setARWH(${k}, this.value, null)" title="比例寬">
-            <span class="hint">:</span>
-            <input type="number" min="1" max="8192" value="${it.ar.h}" onchange="setARWH(${k}, null, this.value)" title="比例高">` : ""}
-            <button class="arswap ${it.ar&&it.ar.swap?"land":""}" onclick="setARSwap(${k})" title="直式／橫式切換">
-              <span class="ph-ic">▯</span> ${it.ar&&it.ar.swap?"橫式":"直式"}</button>
+            <div class="arrow">
+              <input type="number" min="1" max="8192" value="${it.ar.w}" onchange="setARWH(${k}, this.value, null)" title="比例寬">
+              <span class="arsep">:</span>
+              <input type="number" min="1" max="8192" value="${it.ar.h}" onchange="setARWH(${k}, null, this.value)" title="比例高">
+            </div>` : ""}
           </div></div>
       </div>
       <div>
